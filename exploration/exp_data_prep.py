@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-ace_data = pd.read_csv("data/ace_referral_data.csv")
-
+ace_data = pd.read_csv("data/ace_data_orig.csv")
 
 # replace "None" values with nan
 ace_data.replace("None", np.nan, inplace=True)
@@ -198,6 +197,6 @@ ace_data["apls_resp_rate_cat"] = ace_data.apls_resp_rate_cat.astype("category")
 
 
 # save to pickle / csv
-ace_data.to_pickle("data/ace_data_prepped.pkl")
-ace_data.to_csv("data/ace_data_prepped.csv")
+ace_data.to_pickle("data/ace_data_extra_feats.pkl")
+ace_data.to_csv("data/ace_data_extra_feats.csv")
 

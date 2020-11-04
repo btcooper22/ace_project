@@ -28,7 +28,8 @@ def clean_data(dataf):
             + f"\nand shoudn't contain the following columns:\n{extra_features}"
         )
 
-    # replace "None" values with nan
+    # replace "None" values with nan or "Not Stated" category for ethnicity
+    dataf.ethnicity.replace("None", "Not Stated", inplace=True)
     dataf.replace("None", np.nan, inplace=True)
 
     # set numeric features to float after removing "None" values
@@ -51,6 +52,40 @@ def clean_data(dataf):
                           .astype("category"))
 
     return dataf
+
+
+def fill_nas(dataf):
+
+    na_mask = dataf.isna().any(axis=1)
+    na_dataf = dataf[na_mask]
+    complete_dataf = dataf[~na_mask]
+
+    # split train / test from complete examples only
+    # (avoid introducing noise into test set from inferring nas)
+
+    # infer missing na values
+
+    # produce list counting no of nas per example
+    na_counts = na_dataf.isna().sum(axis=1)
+    # remove examples with 2 or more nas (few in number and likely to be more noisy)
+    na_dataf = na_dataf[na_counts == 1]
+
+    infer_na_values = {
+        "activity_level": "mode",
+        "gut_feeling": "mode",
+        "ox_sat": "mean",
+        "resp_rate": "mean",
+        "heart_rate": "mean",
+        "temp": "mean"
+    }
+
+    for feature, agg_method in infer_na_values.items():
+        if agg_method == "mean":
+            na_dataf[feature].fillna(complete_dataf[feature].mean(), inplace=True)
+        elif agg_method == "mode":
+            na_dataf[feature].fillna(complete_dataf[feature].mode()[0], inplace=True)
+
+    return pd.concat([complete_dataf, na_dataf])
 
 
 def add_features(dataf):
@@ -190,57 +225,38 @@ def add_features(dataf):
     return dataf
 
 
-def return_train_test(loc, cat_encoder=None, resampled=False, scaled=False):
-    if cat_encoder not in [None, "one_hot", "target"]:
-        raise ValueError('Encoder must be one of [None, "one_hot", "target"]')
+def return_train_test(dataf, cat_encoder, resampled=False):
 
-    ace_data = return_prepped_ace_data(loc)
+    if cat_encoder not in ["one_hot", "target"]:
+        raise ValueError('Encoder must be one of "one_hot" or "target"')
+
+    dataf = (dataf
+             .pipe(start_pipeline)
+             .pipe(clean_data)
+             .pipe(add_features))
 
     # divide data into examples containing na features and complete examples
-    na_mask = ace_data.isna().any(axis=1)
-    na_ace_data = ace_data[na_mask]
-    complete_ace_data = ace_data[~na_mask]
+    na_mask = dataf.isna().any(axis=1)
+    na_dataf = dataf[na_mask]
+    complete_dataf = dataf[~na_mask]
 
     # split train / test from complete examples only
     # (avoid introducing noise into test set from inferring nas)
     X_train, X_test, y_train, y_test = train_test_split(
-        complete_ace_data.drop("hospital_reqd", axis=1),
-        complete_ace_data.hospital_reqd,
+        complete_dataf.drop("hospital_reqd", axis=1),
+        complete_dataf.hospital_reqd,
         test_size=0.33,
-        stratify=complete_ace_data.hospital_reqd,
+        stratify=complete_dataf.hospital_reqd,
         random_state=1)
 
     # infer missing na values
+    train_data = X_train.copy()
+    train_data["hospital_reqd"] = y_train
+    train_data = pd.concat([train_data, na_dataf])
+    train_data = train_data.pipe(fill_nas)
+    X_train, y_train = train_data.drop("hospital_reqd", axis=1), train_data.hospital_reqd
 
-    # produce list counting no of nas per example
-    na_counts = na_ace_data.isna().sum(axis=1)
-    # remove examples with 2 or more nas (few in number and likely to be more noisy)
-    na_ace_data = na_ace_data[na_counts == 1]
-
-    infer_na_values = {
-        "activity_level": "mode",
-        "gut_feeling": "mode",
-        "ox_sat": "mean",
-        "resp_rate": "mean",
-        "heart_rate": "mean",
-        "temp": "mean"
-    }
-
-    for feature, agg_method in infer_na_values.items():
-        if agg_method == "mean":
-            na_ace_data[feature].fillna(ace_data[feature].mean(), inplace=True)
-        elif agg_method == "mode":
-            na_ace_data[feature].fillna(ace_data[feature].mode()[0], inplace=True)
-
-    # concat inferred na_examples / labels to X_train / y_train & reset all indeces
-    X_train = (pd.concat([X_train, na_ace_data.drop("hospital_reqd", axis=1)])
-               .reset_index(drop=True))
-    y_train = (pd.concat([y_train, na_ace_data.hospital_reqd])
-               .reset_index(drop=True))
-    X_test = X_test.reset_index(drop=True)
-    y_test = y_test.reset_index(drop=True)
-
-    # copy original X_train / y_train for target encoding resampled data
+    # copy original X_train / y_train for target encoding
     X_train_orig, y_train_orig = X_train.copy(), y_train.copy()
 
     if resampled:
@@ -254,45 +270,48 @@ def return_train_test(loc, cat_encoder=None, resampled=False, scaled=False):
                         categorical_features=cat_feature_idxs)
 
         X_train, y_train = smote.fit_resample(X_train, y_train)
-        X_train = X_train.reset_index(drop=True)
-        y_train = y_train.reset_index(drop=True)
 
-    if cat_encoder:
+    for df in [X_train, y_train, X_test, y_test]:
+        df.reset_index(drop=True, inplace=True)
 
-        cat_features = [feature for feature in X_train.columns
-                        if X_train[feature].dtype.name == "category"]
-        num_features = [feature for feature in X_train.columns
-                        if feature not in cat_features]
+    cat_features = [feature for feature in X_train.columns
+                    if X_train[feature].dtype.name == "category"]
 
-        if cat_encoder == "one_hot":
-            encoder = OneHotEncoder(sparse=False).fit(X_train[cat_features])
-            feature_names = []
-            for feature, categories in zip(cat_features, encoder.categories_):
-                for category in categories:
-                    name = feature + '_' + category
-                    feature_names.append(name)
-        elif cat_encoder == "target":
+    num_features = [feature for feature in X_train.columns
+                    if feature not in cat_features]
 
-            encoder = LeaveOneOutEncoder().fit(X_train_orig[cat_features],
-                                               y_train_orig)
-            feature_names = cat_features
+    if cat_encoder == "one_hot":
+        encoder = OneHotEncoder(sparse=False).fit(X_train[cat_features])
+        encoded_feature_names = []
+        for feature, categories in zip(cat_features, encoder.categories_):
+            for category in categories:
+                name = feature + '_' + category
+                encoded_feature_names.append(name)
 
-        if scaled:
-            mm_scaler = MinMaxScaler().fit(X_train[num_features])
+    elif cat_encoder == "target":
 
-        enc_train_test = []
-        for df in [X_train, X_test]:
-            enc_cat_data = pd.DataFrame(encoder.transform(df[cat_features]),
-                                        columns=feature_names)
-            if scaled:
-                num_data = pd.DataFrame(mm_scaler.transform(df[num_features]),
-                                        columns=num_features)
-            else:
-                num_data = df[num_features]
+        encoder = LeaveOneOutEncoder().fit(X_train_orig[cat_features],
+                                           y_train_orig)
+        encoded_feature_names = cat_features
 
-            enc_df = pd.concat([enc_cat_data, num_data], axis=1)
-            enc_train_test.append(enc_df)
+    mm_scaler = MinMaxScaler().fit(X_train[num_features])
 
-        X_train, X_test = enc_train_test
+    enc_scaled_train_test = []
+    for df in [X_train, X_test]:
+        enc_cat_data = pd.DataFrame(encoder.transform(df[cat_features]),
+                                    columns=encoded_feature_names)
 
-    return X_train, y_train, X_test, y_test
+        num_data = df[num_features]
+        scaled_num_data = pd.DataFrame(mm_scaler.transform(df[num_features]),
+                                columns=num_features)
+
+        enc_df = pd.concat([enc_cat_data, num_data], axis=1)
+        enc_scaled_df = pd.concat([enc_cat_data, scaled_num_data], axis=1)
+
+        enc_scaled_train_test += [enc_df, enc_scaled_df]
+
+    X_train, X_train_scaled, X_test, X_test_scaled = enc_scaled_train_test
+
+    return X_train, X_train_scaled, y_train, X_test, X_test_scaled, y_test
+
+

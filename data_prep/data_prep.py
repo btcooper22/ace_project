@@ -225,54 +225,62 @@ def add_features(dataf):
     return dataf
 
 
-def return_train_test(dataf, cat_encoder, resampled=False):
-
-    if cat_encoder not in ["one_hot", "target"]:
-        raise ValueError('Encoder must be one of "one_hot" or "target"')
+def return_train_test(dataf):
 
     dataf = (dataf
              .pipe(start_pipeline)
              .pipe(clean_data)
-             .pipe(add_features))
-
-    # divide data into examples containing na features and complete examples
-    na_mask = dataf.isna().any(axis=1)
-    na_dataf = dataf[na_mask]
-    complete_dataf = dataf[~na_mask]
+             .pipe(add_features)
+             .pipe(fill_nas))
 
     # split train / test from complete examples only
     # (avoid introducing noise into test set from inferring nas)
     X_train, X_test, y_train, y_test = train_test_split(
-        complete_dataf.drop("hospital_reqd", axis=1),
-        complete_dataf.hospital_reqd,
+        dataf.drop("hospital_reqd", axis=1),
+        dataf.hospital_reqd,
         test_size=0.33,
-        stratify=complete_dataf.hospital_reqd,
+        stratify=dataf.hospital_reqd,
         random_state=1)
 
-    # infer missing na values
-    train_data = X_train.copy()
-    train_data["hospital_reqd"] = y_train
-    train_data = pd.concat([train_data, na_dataf])
-    train_data = train_data.pipe(fill_nas)
-    X_train, y_train = train_data.drop("hospital_reqd", axis=1), train_data.hospital_reqd
+    return X_train, y_train, X_test, y_test
 
-    # copy original X_train / y_train for target encoding
-    X_train_orig, y_train_orig = X_train.copy(), y_train.copy()
 
-    if resampled:
+def add_synthetic_examples(X_train, y_train):
 
-        cat_feature_idxs = []
-        for i, col in enumerate(X_train.columns):
-            if not X_train[col].dtype in ["int", "float"]:
-                cat_feature_idxs.append(i)
+    n_orig_examples = len(X_train)
+    cat_feature_idxs = []
+    for i, col in enumerate(X_train.columns):
+        if not X_train[col].dtype in ["int", "float"]:
+            cat_feature_idxs.append(i)
 
-        smote = SMOTENC(random_state=1,
-                        categorical_features=cat_feature_idxs)
+    smote = SMOTENC(random_state=1,
+                    categorical_features=cat_feature_idxs)
 
-        X_train, y_train = smote.fit_resample(X_train, y_train)
+    X_train, y_train = smote.fit_resample(X_train, y_train)
 
-    for df in [X_train, y_train, X_test, y_test]:
+    # create is synthetic feature
+    n_synthetic_examples = len(X_train) - n_orig_examples
+    is_synthetic = np.concatenate([np.zeros(n_orig_examples),
+                                  np.ones(n_synthetic_examples)])
+    X_train["is_synthetic"] = is_synthetic
+
+    return X_train, y_train
+
+
+def encode_and_scale(X_train, y_train, X_test, cat_encoder, scaled=False):
+
+    if cat_encoder not in ["one_hot", "target"]:
+        raise ValueError('Encoder must be one of "one_hot" or "target"')
+
+    for df in [X_train, y_train, X_test]:
         df.reset_index(drop=True, inplace=True)
+
+    if "is_synthetic" in X_train.columns:
+        contains_synthetic_examples = True
+        synthetic = X_train.is_synthetic == 1
+        X_train.drop("is_synthetic", axis=1, inplace=True)
+    else:
+        contains_synthetic_examples = False
 
     cat_features = [feature for feature in X_train.columns
                     if X_train[feature].dtype.name == "category"]
@@ -281,7 +289,10 @@ def return_train_test(dataf, cat_encoder, resampled=False):
                     if feature not in cat_features]
 
     if cat_encoder == "one_hot":
-        encoder = OneHotEncoder(sparse=False).fit(X_train[cat_features])
+
+        full_df = pd.concat([X_train, X_test])
+        encoder = OneHotEncoder(sparse=False).fit(full_df[cat_features])
+
         encoded_feature_names = []
         for feature, categories in zip(cat_features, encoder.categories_):
             for category in categories:
@@ -290,28 +301,32 @@ def return_train_test(dataf, cat_encoder, resampled=False):
 
     elif cat_encoder == "target":
 
-        encoder = LeaveOneOutEncoder().fit(X_train_orig[cat_features],
-                                           y_train_orig)
+        encoder = LeaveOneOutEncoder()
+        if contains_synthetic_examples:
+            encoder.fit(X_train[~synthetic][cat_features],
+                        y_train[~synthetic])
+        else:
+            encoder.fit(X_train[cat_features], y_train)
+
         encoded_feature_names = cat_features
 
-    mm_scaler = MinMaxScaler().fit(X_train[num_features])
+    if scaled:
+        mm_scaler = MinMaxScaler().fit(X_train[num_features])
 
-    enc_scaled_train_test = []
+    encoded_scaled_train_test = []
     for df in [X_train, X_test]:
         enc_cat_data = pd.DataFrame(encoder.transform(df[cat_features]),
                                     columns=encoded_feature_names)
 
         num_data = df[num_features]
-        scaled_num_data = pd.DataFrame(mm_scaler.transform(df[num_features]),
-                                columns=num_features)
+        if scaled:
+            num_data = pd.DataFrame(mm_scaler.transform(num_data),
+                                    columns=num_features)
 
-        enc_df = pd.concat([enc_cat_data, num_data], axis=1)
-        enc_scaled_df = pd.concat([enc_cat_data, scaled_num_data], axis=1)
+        encoded_df = pd.concat([enc_cat_data, num_data], axis=1)
 
-        enc_scaled_train_test += [enc_df, enc_scaled_df]
+        encoded_scaled_train_test.append(encoded_df)
 
-    X_train, X_train_scaled, X_test, X_test_scaled = enc_scaled_train_test
+    X_train, X_test, = encoded_scaled_train_test
 
-    return X_train, X_train_scaled, y_train, X_test, X_test_scaled, y_test
-
-
+    return X_train, X_test

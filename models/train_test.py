@@ -4,6 +4,7 @@ from sklearn.metrics import (make_scorer, confusion_matrix, precision_score,
                              f1_score, roc_auc_score, accuracy_score,
                              recall_score)
 from sklearn.model_selection import StratifiedKFold, ParameterGrid
+from sklearn.utils.class_weight import compute_class_weight
 
 import sys
 sys.path.append('/Users/samrelins/Documents/LIDA/ace_project/')
@@ -30,28 +31,28 @@ scoring = {
 }
 
 
-def score_classifier(clf, x, y):
+def score_classifier(clf, X, y):
     """
     scores a classifier against metrics in scoring dict
 
     :param clf: (object: sklearn classifier) classifier to be scored
-    :param x: (object: pandas dataframe) matrix of training vectors
+    :param X: (object: pandas dataframe) matrix of training vectors
     :param y: (object: pandas series) vector of target labels
     :return: (dict) group of {score function name: score} pairs
     """
 
     scores = {}
     for name, scorer in scoring.items():
-        scores[name] = scorer(clf, x, y)
+        scores[name] = scorer(clf, X, y)
     return scores
 
 
-def cv_score_classifier(clf, x_train, y_train, params,
+def cv_score_classifier(clf, X_train, y_train, params,
                         cat_encoder="one_hot",
-                        add_synthetic=false,
-                        scaled=false,
+                        add_synthetic=False,
+                        scaled=False,
                         n_splits=3,
-                        weight_y=false):
+                        weight_y=False):
     """
     custom cv loop to score classifier functions
 
@@ -61,37 +62,37 @@ def cv_score_classifier(clf, x_train, y_train, params,
     gridsearchcv.
 
     :param clf: (object: sklearn classifier) classifier to train and score
-    :param x_train: (object: pandas dataframe) explanatory training data
+    :param X_train: (object: pandas dataframe) explanatory training data
     :param y_train: (object: pandas series) training data labels
     :param params: (dict) parameters for classifier
     :param cat_encoder: (str: "one_hot") categorical encoder for data
     either "one_hot" / "target"
-    :param add_synthetic: (bool: false) set true to add smote examples before
+    :param add_synthetic: (bool: False) set True to add smote examples before
     training
-    :param scaled: (bool: false) set true to scale numeric features
-    :param n_splits: (int: 3) number of splilts for cv loop
-    :param weight_y: (bool: false) set true if clf requires sample_weights
+    :param scaled: (bool: False) set True to scale numeric features
+    :param n_splits: (int: 3) number of splits for cv loop
+    :param weight_y: (bool: False) set True if clf requires sample_weights
     :return:
     """
 
     # create splits for cv loop
-    splitter = stratifiedkfold(n_splits=n_splits, random_state=1)
-    splits = list(splitter.split(x_train, y_train))
+    splitter = StratifiedKFold(n_splits=n_splits, random_state=1)
+    splits = list(splitter.split(X_train, y_train))
 
     total_cv_scores = {} # dict to store cumulative cv scores
     for train_idxs, val_idxs  in splits:
         # divide data into train and validation sets for this cv loop
-        cv_x_train, cv_y_train, x_val, y_val = (x_train.iloc[train_idxs],
+        cv_X_train, cv_y_train, X_val, y_val = (X_train.iloc[train_idxs],
                                                 y_train.iloc[train_idxs],
-                                                x_train.iloc[val_idxs],
+                                                X_train.iloc[val_idxs],
                                                 y_train.iloc[val_idxs])
 
         if add_synthetic: # add smote examples to balance data if required
-            cv_x_train, cv_y_train = add_synthetic_examples(cv_x_train, cv_y_train)
+            cv_X_train, cv_y_train = add_synthetic_examples(cv_X_train, cv_y_train)
 
         # encode categorical features and scale numeric if required
-        cv_x_train, x_val, = encode_and_scale(
-            cv_x_train, cv_y_train, x_val,
+        cv_X_train, X_val, = encode_and_scale(
+            cv_X_train, cv_y_train, X_val,
             cat_encoder=cat_encoder,
             scaled=scaled)
 
@@ -105,15 +106,15 @@ def cv_score_classifier(clf, x_train, y_train, params,
             # train model using parameters, weights and cv loop data
             cv_clf = (clf
                       .set_params(**params)
-                      .fit(cv_x_train, cv_y_train, sample_weight=y_weights))
+                      .fit(cv_X_train, cv_y_train, sample_weight=y_weights))
         else:
             # train model using parameters and cv loop data
             cv_clf = (clf
                       .set_params(**params)
-                      .fit(cv_x_train, cv_y_train))
+                      .fit(cv_X_train, cv_y_train))
 
         # score classifier on cv validation set and add scores to total
-        scores = score_classifier(cv_clf, x_val, y_val)
+        scores = score_classifier(cv_clf, X_val, y_val)
         if total_cv_scores:
             for key, value in scores.items():
                 total_cv_scores[key] += value
@@ -136,7 +137,7 @@ def param_search_classifier(param_grid, **kwargs):
     :return: (dict: best_scores, dict: best_params) scores and parameters for
     highest scoring model
     """
-    param_grid = parametergrid(param_grid)
+    param_grid = ParameterGrid(param_grid)
     # variable to store best param combo and relevant scores
     best_scores = {}
     best_params = {}

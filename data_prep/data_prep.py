@@ -18,6 +18,7 @@ def clean_data(dataf):
                      'referral_time', 'illness_severity', 'activity_level',
                      'gut_feeling', 'ox_sat', 'resp_rate', 'heart_rate',
                      'temp', 'sepsis', 'safeguarding']
+
     if sorted(dataf.columns) != sorted(reqd_features):
         missing_features = [feature for feature in reqd_features
                             if feature not in dataf.columns]
@@ -56,15 +57,13 @@ def clean_data(dataf):
 
 def fill_nas(dataf):
 
+    # divide data into examples containing na values and complete examples
     na_mask = dataf.isna().any(axis=1)
     na_dataf = dataf[na_mask]
     complete_dataf = dataf[~na_mask]
 
-    # split train / test from complete examples only
-    # (avoid introducing noise into test set from inferring nas)
 
     # infer missing na values
-
     # produce list counting no of nas per example
     na_counts = na_dataf.isna().sum(axis=1)
     # remove examples with 2 or more nas (few in number and likely to be more noisy)
@@ -89,7 +88,8 @@ def fill_nas(dataf):
 
 
 def add_features(dataf):
-    # refactor allergy feature
+
+    # refactor allergy feature to one-hot-style Y / N features
     for allergy in ["Food", "Drug", "Other"]:
         allergy_name = allergy.lower() + "_allergy"
         dataf[allergy_name] = dataf.allergies.apply(

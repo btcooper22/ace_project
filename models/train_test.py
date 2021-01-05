@@ -9,6 +9,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import sys
 sys.path.append('/Users/samrelins/Documents/LIDA/ace_project/')
 from data_prep.data_prep import *
+from tqdm import tqdm
 
 # custom scoring functions for cv loop
 true_neg = make_scorer(lambda y, y_pred: confusion_matrix(y, y_pred)[0][0])
@@ -137,11 +138,27 @@ def param_search_classifier(param_grid, **kwargs):
     :return: (dict: best_scores, dict: best_params) scores and parameters for
     highest scoring model
     """
+
+    print("=" * 50)
+    if "cat_encoder" in kwargs.keys():
+        cat_encoder = kwargs["cat_encoder"]
+    else:
+        cat_encoder = "one_hot"
+    if "add_synthetic" in kwargs.keys():
+        add_synthetic = kwargs["add_synthetic"]
+    else:
+        add_synthetic = False
+    print(f"Testing {kwargs['clf']} classifier with {cat_encoder} "
+          "encoded features"
+          f"{' and SMOTE examples.' if add_synthetic else '.'}")
+    print("=" * 50, flush=True)
+
     param_grid = ParameterGrid(param_grid)
     # variable to store best param combo and relevant scores
     best_scores = {}
     best_params = {}
-    for params in param_grid:
+
+    for params in tqdm(param_grid):
         mean_cv_scores = cv_score_classifier(params=params,
                                              **kwargs)
         if not best_scores:

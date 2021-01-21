@@ -7,8 +7,8 @@ from sklearn.model_selection import StratifiedKFold, ParameterGrid
 from sklearn.utils.class_weight import compute_class_weight
 
 import sys
-sys.path.append('/Users/samrelins/Documents/LIDA/ace_project/')
-from data_prep.data_prep import *
+sys.path.append('//')
+from src.data_prep import *
 from tqdm import tqdm
 
 # custom scoring functions for cv loop

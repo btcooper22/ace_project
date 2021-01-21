@@ -19,15 +19,18 @@ def clean_data(dataf):
                      'gut_feeling', 'ox_sat', 'resp_rate', 'heart_rate',
                      'temp', 'sepsis', 'safeguarding']
 
-    if sorted(dataf.columns) != sorted(reqd_features):
-        missing_features = [feature for feature in reqd_features
-                            if feature not in dataf.columns]
-        extra_features = [feature for feature in dataf.columns
-                          if feature not in reqd_features]
+    missing_features = [feature for feature in reqd_features
+                        if feature not in dataf.columns]
+
+    if missing_features:
         raise ValueError(
             f"Input data should contain the folowing columns:\n{missing_features}"
-            + f"\nand shoudn't contain the following columns:\n{extra_features}"
         )
+
+    text_features = ["medical_history", "examination_summary", "recommendation"]
+    if all([text_feature in dataf.columns for text_feature in text_features]):
+        for feature in text_features:
+            dataf[feature].fillna("no_information", inplace=True)
 
     # replace "None" values with nan or "Not Stated" category for ethnicity
     dataf.ethnicity.replace("None", "Not Stated", inplace=True)
@@ -230,8 +233,8 @@ def return_train_test(dataf):
     dataf = (dataf
              .pipe(start_pipeline)
              .pipe(clean_data)
-             .pipe(add_features)
-             .pipe(fill_nas))
+             .pipe(fill_nas)
+             .pipe(add_features))
 
     # split train / test from complete examples only
     # (avoid introducing noise into test set from inferring nas)

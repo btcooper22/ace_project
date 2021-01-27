@@ -4,7 +4,11 @@ from imblearn.over_sampling import SMOTENC
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
 from category_encoders.leave_one_out import LeaveOneOutEncoder
+import re
 
+import nltk
+nltk.download("wordnet")
+nltk.download("stopwords")
 
 def start_pipeline(dataf):
     return dataf.copy()
@@ -27,6 +31,7 @@ def clean_data(dataf):
             f"Input data should contain the folowing columns:\n{missing_features}"
         )
 
+    # replace blank text fields with no_information
     text_features = ["medical_history", "examination_summary", "recommendation"]
     if all([text_feature in dataf.columns for text_feature in text_features]):
         for feature in text_features:
@@ -51,8 +56,13 @@ def clean_data(dataf):
                     'referral_date', 'referral_time', 'illness_severity',
                     'activity_level', 'gut_feeling', 'sepsis', 'safeguarding']
 
+    if "referral_profession" in dataf.columns:
+        cat_features.append("referral_profession")
+
     for feature in cat_features:
-        dataf[feature] = (dataf[feature].str.strip()
+        dataf[feature] = (dataf[feature]
+                          .str.strip() # remove all punctuation
+                          .str.lower() # set to all lower case
                           .astype("category"))
 
     return dataf
@@ -93,10 +103,10 @@ def fill_nas(dataf):
 def add_features(dataf):
 
     # refactor allergy feature to one-hot-style Y / N features
-    for allergy in ["Food", "Drug", "Other"]:
-        allergy_name = allergy.lower() + "_allergy"
+    for allergy in ["food", "drug", "other"]:
+        allergy_name = allergy + "_allergy"
         dataf[allergy_name] = dataf.allergies.apply(
-            lambda x: 'Y' if allergy in x else 'N'
+            lambda x: 'Y' if allergy in x.lower() else 'N'
         ).astype("category")
     dataf.drop("allergies", axis=1, inplace=True)
 
@@ -225,16 +235,69 @@ def add_features(dataf):
     dataf.loc[meets_ace_criteria, "meets_ace_criteria"] = "Y"
     dataf["meets_ace_criteria"] = dataf.meets_ace_criteria.astype("category")
 
+    stopwords = set(nltk.corpus.stopwords.words("english"))
+    custom_stopwords = ["july", "and"]
+    for stopword in custom_stopwords:
+        stopwords.add(stopword)
+
+    lemmatizer = nltk.WordNetLemmatizer()
+    stemmer = nltk.SnowballStemmer("english")
+    tokenizer = nltk.tokenize.RegexpTokenizer(r"(\d+|[a-zA-Z]+)")
+
+    replace_words = {
+        "asthma": r"asthm\w+",
+        "wheeze": r"wheez\w+"
+    }
+
+    def ace_text_preprocessor(text):
+        text = text.lower()
+        for re_word in replace_words.keys():
+            text = re.sub(replace_words[re_word], re_word, text)
+        tokens = []
+        for token in tokenizer.tokenize(text):
+            if token.lower() not in stopwords:
+                lem_token = lemmatizer.lemmatize(token, pos='v')
+                stem_lem_token = stemmer.stem(lem_token)
+                tokens.append(stem_lem_token)
+        return " ".join(tokens)
+
+    simple_text_features = {
+        "hist_montel": ("montel", "medical_history"),
+        "hist_wheez_episod": ("wheez episod", "medical_history"),
+        "hist_know_asthma": ("know asthma", "medical_history"),
+        "hist_asthma": ("asthma", "medical_history"),
+        "summary_salbutamol": ("salbutamol", "examination_summary"),
+        "recommend_prednisolon": ("prednisolon", "recommendation"),
+        "recommend_inhal": ("inhal", "recommendation"),
+        "recommend_spacer": ("spacer", "recommendation"),
+    }
+
+    def find_token(token, text):
+        preprocessed_text = ace_text_preprocessor(text)
+        return "Y" if token in preprocessed_text else "N"
+
+    if "recommendation" in dataf.columns:
+        for new_feature, text_feature_tuple, in simple_text_features.items():
+            token, text_feature = text_feature_tuple
+            dataf[new_feature] = dataf[text_feature].apply(
+                lambda text: find_token(token, text)
+            ).astype("category")
+        dataf.drop(["medical_history",
+                    "examination_summary",
+                    "recommendation"],
+                   axis=1, inplace=True)
+
     return dataf
 
 
-def return_train_test(dataf):
+def return_train_test(dataf, run_pipeline=True):
 
-    dataf = (dataf
-             .pipe(start_pipeline)
-             .pipe(clean_data)
-             .pipe(fill_nas)
-             .pipe(add_features))
+    if run_pipeline:
+        dataf = (dataf
+                 .pipe(start_pipeline)
+                 .pipe(clean_data)
+                 .pipe(fill_nas)
+                 .pipe(add_features))
 
     # split train / test from complete examples only
     # (avoid introducing noise into test set from inferring nas)

@@ -161,10 +161,11 @@ def param_search_classifier(param_grid, **kwargs):
     for params in tqdm(param_grid):
         mean_cv_scores = cv_score_classifier(params=params,
                                              **kwargs)
+        better_than_random = mean_cv_scores["accuracy"] > 0.5
         if not best_scores:
             best_scores = mean_cv_scores
             best_params = params
-        elif mean_cv_scores["f1"] > best_scores["f1"]:
+        elif mean_cv_scores["f1"] > best_scores["f1"] and better_than_random:
             best_scores = mean_cv_scores
             best_params = params
 

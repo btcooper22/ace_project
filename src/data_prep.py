@@ -10,60 +10,59 @@ import nltk
 nltk.download("wordnet")
 nltk.download("stopwords")
 
+
 def start_pipeline(dataf):
     return dataf.copy()
 
 
+def skip_missing_features(features, dataf):
+    return [feature for feature in features if feature in dataf.columns]
+
+
 def clean_data(dataf):
-
-    # check columns are present and named correctly
-    reqd_features = ['hospital_reqd', 'referral_from', 'age', 'address',
-                     'ethnicity', 'gender', 'allergies', 'referral_date',
-                     'referral_time', 'illness_severity', 'activity_level',
-                     'gut_feeling', 'ox_sat', 'resp_rate', 'heart_rate',
-                     'temp', 'sepsis', 'safeguarding']
-
-    missing_features = [feature for feature in reqd_features
-                        if feature not in dataf.columns]
-
-    if missing_features:
-        raise ValueError(
-            f"Input data should contain the folowing columns:\n{missing_features}"
-        )
 
     # replace blank text fields with no_information
     text_features = ["medical_history", "examination_summary", "recommendation"]
-    if all([text_feature in dataf.columns for text_feature in text_features]):
-        for feature in text_features:
+    text_features = skip_missing_features(text_features, dataf)
+    for feature in text_features:
             dataf[feature].fillna("no_information", inplace=True)
 
     # replace "None" values with nan or "Not Stated" category for ethnicity
-    dataf.ethnicity.replace("None", "Not Stated", inplace=True)
+    if "ethnicity" in dataf.columns:
+        dataf.ethnicity.replace("None", "Not Stated", inplace=True)
     dataf.replace("None", np.nan, inplace=True)
 
     # set numeric features to float after removing "None" values
-    float_features = ["ox_sat", "resp_rate", "heart_rate", "temp"]
-    for feature in float_features:
+    num_features = ["age", "ox_sat", "resp_rate", "heart_rate", "temp"]
+    num_features = skip_missing_features(num_features, dataf)
+    for feature in num_features:
         dataf[feature] = dataf[feature].astype("float")
 
     # set all referral from A&E to ED (same meaning)
-    ane_mask = dataf.referral_from == "A&E"
-    dataf.loc[ane_mask, "referral_from"] = "ED"
+    if "referral_from" in dataf.columns:
+        ane_mask = dataf.referral_from == "A&E"
+        dataf.loc[ane_mask, "referral_from"] = "ED"
+
+    if "ox_sat" in dataf.columns:
+        dataf["ox_sat"] = dataf.ox_sat.apply(
+            lambda ox_sat: 100 if ox_sat > 100 else ox_sat
+        )
 
     # clean and convert cat features to categorical datatype
-    # (other than allergies - treated separately)
-    cat_features = ['referral_from', 'address', 'ethnicity', 'gender',
-                    'referral_date', 'referral_time', 'illness_severity',
-                    'activity_level', 'gut_feeling', 'sepsis', 'safeguarding']
-
-    if "referral_profession" in dataf.columns:
-        cat_features.append("referral_profession")
-
-    for feature in cat_features:
+    for feature in dataf.columns:
+        if feature in text_features + num_features:
+            continue
         dataf[feature] = (dataf[feature]
                           .str.strip() # remove all punctuation
                           .str.lower() # set to all lower case
                           .astype("category"))
+        if len(dataf[feature].cat.categories) > 50:
+            print("=" * 80)
+            print(f"Warning: {feature} has 50 or more categories")
+            print("=" * 80)
+
+    # set hospital_reqd to 1/0 for data analysis
+    dataf["hospital_reqd"] = (dataf.hospital_reqd == "y").astype("int")
 
     return dataf
 
@@ -76,43 +75,46 @@ def fill_nas(dataf):
     complete_dataf = dataf[~na_mask]
 
 
-    # infer missing na values
     # produce list counting no of nas per example
     na_counts = na_dataf.isna().sum(axis=1)
     # remove examples with 2 or more nas (few in number and likely to be more noisy)
     na_dataf = na_dataf[na_counts == 1]
 
-    infer_na_values = {
-        "activity_level": "mode",
-        "gut_feeling": "mode",
-        "ox_sat": "mean",
-        "resp_rate": "mean",
-        "heart_rate": "mean",
-        "temp": "mean"
-    }
+    # produce a list of feature names that contain na_values
+    na_features = na_dataf.isna().any()
+    na_feature_names = na_features[na_features].index
 
-    for feature, agg_method in infer_na_values.items():
-        if agg_method == "mean":
-            na_dataf[feature].fillna(complete_dataf[feature].mean(), inplace=True)
-        elif agg_method == "mode":
-            na_dataf[feature].fillna(complete_dataf[feature].mode()[0], inplace=True)
+    for feature in na_feature_names:
+        feature_dtype = na_dataf[feature].dtype
+        if feature_dtype == "float":
+            na_dataf[feature].fillna(
+                complete_dataf[feature].mean(), inplace=True
+            )
+        elif feature_dtype.name == "category":
+            na_dataf[feature].fillna(
+                complete_dataf[feature].mode()[0], inplace=True
+            )
+        else:
+            print(f"Warning: {feature} is dtype {feature_dtype}\n "
+                  f"cannont process {feature_dtype} features - nas will "
+                  f"persist")
 
     return pd.concat([complete_dataf, na_dataf])
 
 
-def add_features(dataf):
-
+def add_allergy_features(dataf):
     # refactor allergy feature to one-hot-style Y / N features
     for allergy in ["food", "drug", "other"]:
         allergy_name = allergy + "_allergy"
         dataf[allergy_name] = dataf.allergies.apply(
-            lambda x: 'Y' if allergy in x.lower() else 'N'
+            lambda x: 'y' if allergy in x.lower() else 'n'
         ).astype("category")
+
     dataf.drop("allergies", axis=1, inplace=True)
 
-    # set hospital_reqd to 1/0 for data analysis
-    dataf["hospital_reqd"] = (dataf.hospital_reqd == "Y").astype("int")
+    return dataf
 
+def add_ethnicity_features(dataf):
     # new ethnicity features
     # set reported ethnicity to other if not British / Pakistani
     dataf["simple_ethnicity"] = dataf.ethnicity.apply(
@@ -136,13 +138,18 @@ def add_features(dataf):
     dataf["group_ethnicity"] = dataf.group_ethnicity.astype("category")
     dataf.drop("ethnicity", axis=1, inplace=True)
 
+    return dataf
+
+
+def add_ace_apls_features(dataf):
     # add features from ace referral sheets
     # ox_sat_low feature: < 94 = low
     dataf["ox_sat_low"] = dataf.ox_sat.apply(
-        lambda x: "Y" if x < 94 else "N"
+        lambda x: "y" if x < 94 else "n"
     ).astype("category")
 
-    # age_range feature: "pre_school" = (2-5), "primary" = (5-12), "secondary" (12+)
+    # age_range feature: "pre_school" = (2-5), "primary" = (5-12),
+    # "secondary" (12+)
     dataf["age_range"] = "pre_school"
 
     primary = (dataf.age >= 5) & (dataf.age < 12)
@@ -156,7 +163,8 @@ def add_features(dataf):
     # set low / normal / high ranges for ace / apls heart / resp rate
     # see ace & apls referral criteria for more info
 
-    # generic function to set low / normal / high ranges for a feature within age ranges
+    # generic function to set low / normal / high ranges for a feature within
+    # age ranges
     def set_low_norm_high(feature, feature_range, age_range, new_feature_name):
 
         if new_feature_name not in dataf.columns:
@@ -224,16 +232,21 @@ def add_features(dataf):
         dataf[new_feature_name] = dataf[new_feature_name].astype("category")
 
     # overall feature for meeting ace referral criteria
-    dataf["meets_ace_criteria"] = "N"
+    dataf["meets_ace_criteria"] = "n"
 
-    meets_ace_criteria = ((dataf.ox_sat_low == "N") &
+    meets_ace_criteria = ((dataf.ox_sat_low == "n") &
                           (dataf.ace_heart_rate_cat == "normal") &
                           (dataf.ace_resp_rate_cat == "normal") &
                           (dataf.gut_feeling != "unwell") &
                           (dataf.illness_severity != "Moderate"))
 
-    dataf.loc[meets_ace_criteria, "meets_ace_criteria"] = "Y"
+    dataf.loc[meets_ace_criteria, "meets_ace_criteria"] = "y"
     dataf["meets_ace_criteria"] = dataf.meets_ace_criteria.astype("category")
+
+    return dataf
+
+
+def add_free_text_features(dataf):
 
     stopwords = set(nltk.corpus.stopwords.words("english"))
     custom_stopwords = ["july", "and"]
@@ -274,9 +287,10 @@ def add_features(dataf):
 
     def find_token(token, text):
         preprocessed_text = ace_text_preprocessor(text)
-        return "Y" if token in preprocessed_text else "N"
+        return "y" if token in preprocessed_text else "n"
 
-    if "recommendation" in dataf.columns:
+    text_features = ["medical_history", "examination_summary", "recommendation"]
+    if all([text_feature in dataf.columns for text_feature in text_features]):
         for new_feature, text_feature_tuple, in simple_text_features.items():
             token, text_feature = text_feature_tuple
             dataf[new_feature] = dataf[text_feature].apply(
@@ -290,14 +304,49 @@ def add_features(dataf):
     return dataf
 
 
+def run_default_pipeline(dataf):
+
+    dataf = (dataf.pipe(start_pipeline)
+             .pipe(clean_data)
+             .pipe(fill_nas))
+
+    if "allergies" in dataf.columns:
+        dataf = dataf.pipe(add_allergy_features)
+    else:
+        print("Warning: Allergies Missing - skipping")
+
+    if "ethnicity" in dataf.columns:
+        dataf = dataf.pipe(add_ethnicity_features)
+    else:
+        print("Warning: Ethnicity Missing - skipping")
+
+    required_ace_apls_features = ["age", "resp_rate", "heart_rate", "ox_sat",
+                                  "gut_feeling", "illness_severity"]
+    missing_ace_apls_features = [
+        feature for feature in required_ace_apls_features
+        if feature not in dataf.columns
+    ]
+    if missing_ace_apls_features:
+        print(f"Warning: {missing_ace_apls_features} missing - skipping")
+    else:
+        dataf = dataf.pipe(add_ace_apls_features)
+
+    text_features = ["medical_history", "examination_summary",
+                     "recommendation"]
+    missing_text_features = [feature for feature in text_features
+                             if feature not in dataf.columns]
+    if missing_text_features:
+        print(f"Warning: {missing_text_features} missing - skipping")
+    else:
+        dataf = dataf.pipe(add_free_text_features)
+
+    return dataf
+
+
 def return_train_test(dataf, run_pipeline=True):
 
     if run_pipeline:
-        dataf = (dataf
-                 .pipe(start_pipeline)
-                 .pipe(clean_data)
-                 .pipe(fill_nas)
-                 .pipe(add_features))
+        dataf = dataf.pipe(run_default_pipeline)
 
     # split train / test from complete examples only
     # (avoid introducing noise into test set from inferring nas)
@@ -357,11 +406,18 @@ def encode_and_scale(X_train, y_train, X_test, cat_encoder, scaled=False):
     if cat_encoder == "one_hot":
 
         full_df = pd.concat([X_train, X_test])
-        encoder = OneHotEncoder(sparse=False).fit(full_df[cat_features])
+        encoder = OneHotEncoder(
+            sparse=False,
+            drop="if_binary"
+        ).fit(full_df[cat_features])
 
         encoded_feature_names = []
-        for feature, categories in zip(cat_features, encoder.categories_):
-            for category in categories:
+        for feature, categories, drop_idx in zip(cat_features,
+                                                 encoder.categories_,
+                                                 encoder.drop_idx_):
+            for idx, category in enumerate(categories):
+                if idx == drop_idx:
+                    continue
                 name = feature + '_' + category
                 encoded_feature_names.append(name)
 
@@ -373,7 +429,6 @@ def encode_and_scale(X_train, y_train, X_test, cat_encoder, scaled=False):
                         y_train[~synthetic])
         else:
             encoder.fit(X_train[cat_features], y_train)
-
         encoded_feature_names = cat_features
 
     if scaled:

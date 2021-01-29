@@ -38,11 +38,6 @@ def clean_data(dataf):
     for feature in num_features:
         dataf[feature] = dataf[feature].astype("float")
 
-    # set all referral from A&E to ED (same meaning)
-    if "referral_from" in dataf.columns:
-        ane_mask = dataf.referral_from == "A&E"
-        dataf.loc[ane_mask, "referral_from"] = "ED"
-
     if "ox_sat" in dataf.columns:
         dataf["ox_sat"] = dataf.ox_sat.apply(
             lambda ox_sat: 100 if ox_sat > 100 else ox_sat
@@ -102,6 +97,28 @@ def fill_nas(dataf):
     return pd.concat([complete_dataf, na_dataf])
 
 
+def update_referral_from(dataf):
+
+    # set referral from to 3 simple locations -> gp / ed / ccda
+    referral_from_translations = {
+        "gp": "gp",
+        "a&e": "ed",
+        "ed": "ed",
+        "ccda": "ccda"
+    }
+
+    def translate_referral_from(text):
+        for referral_string in referral_from_translations.keys():
+            if referral_string in text[:4]:
+                return referral_from_translations[referral_string]
+        return "none"
+    dataf["referral_from"] = dataf.referral_from.apply(
+        lambda text: translate_referral_from(text)
+    )
+
+    return dataf
+
+
 def add_allergy_features(dataf):
     # refactor allergy feature to one-hot-style Y / N features
     for allergy in ["food", "drug", "other"]:
@@ -114,22 +131,23 @@ def add_allergy_features(dataf):
 
     return dataf
 
+
 def add_ethnicity_features(dataf):
     # new ethnicity features
     # set reported ethnicity to other if not British / Pakistani
     dataf["simple_ethnicity"] = dataf.ethnicity.apply(
-        lambda x: x if x in ["Pakistani", "British"] else "other"
+        lambda x: x if x in ["pakistani", "british"] else "other"
     ).replace(np.nan, "other")
 
     dataf["simple_ethnicity"] = dataf.simple_ethnicity.astype("category")
 
     # Group ethnicities into European / Asian / Other
-    asian = ["Indian", "Mixed Asian", "Pakistani", "white Asain", "British Asian",
-             "Asian", "Sri Lankan", "Other Asian background", "Bangladeshi"]
+    asian = ["indian", "mixed Asian", "pakistani", "white asain", "british asian",
+             "asian", "sri Lankan", "other asian background", "bangladeshi"]
 
-    european = ["Slovak", "British", "Other white background", "Czech Republic",
-                "White Europeon", "White British", "CommonWealth Russian",
-                "Other European", "Mixed White"]
+    european = ["slovak", "british", "other white background", "czech republic",
+                "white europeon", "white british", "commonwealth russian",
+                "other european", "mixed white"]
 
     dataf["group_ethnicity"] = "other"
     dataf.loc[dataf.ethnicity.isin(european), "group_ethnicity"] = "european"
@@ -309,6 +327,9 @@ def run_default_pipeline(dataf):
     dataf = (dataf.pipe(start_pipeline)
              .pipe(clean_data)
              .pipe(fill_nas))
+
+    if "referral_from" in dataf.columns:
+        dataf = dataf.pipe(update_referral_from)
 
     if "allergies" in dataf.columns:
         dataf = dataf.pipe(add_allergy_features)

@@ -25,7 +25,7 @@ def clean_data(dataf):
     text_features = ["medical_history", "examination_summary", "recommendation"]
     text_features = skip_missing_features(text_features, dataf)
     for feature in text_features:
-            dataf[feature].fillna("no_information", inplace=True)
+            dataf[feature].fillna("noinfo", inplace=True)
 
     # replace "None" values with nan or "Not Stated" category for ethnicity
     if "ethnicity" in dataf.columns:
@@ -114,7 +114,7 @@ def update_referral_from(dataf):
         return "none"
     dataf["referral_from"] = dataf.referral_from.apply(
         lambda text: translate_referral_from(text)
-    )
+    ).astype("category")
 
     return dataf
 
@@ -307,59 +307,44 @@ def add_free_text_features(dataf):
         preprocessed_text = ace_text_preprocessor(text)
         return "y" if token in preprocessed_text else "n"
 
-    text_features = ["medical_history", "examination_summary", "recommendation"]
-    if all([text_feature in dataf.columns for text_feature in text_features]):
-        for new_feature, text_feature_tuple, in simple_text_features.items():
-            token, text_feature = text_feature_tuple
-            dataf[new_feature] = dataf[text_feature].apply(
-                lambda text: find_token(token, text)
-            ).astype("category")
-        dataf.drop(["medical_history",
-                    "examination_summary",
-                    "recommendation"],
-                   axis=1, inplace=True)
+    for new_feature, text_feature_tuple, in simple_text_features.items():
+        token, text_feature = text_feature_tuple
+        dataf[new_feature] = dataf[text_feature].apply(
+            lambda text: find_token(token, text)
+        ).astype("category")
+    dataf.drop(["medical_history",
+                "examination_summary",
+                "recommendation"],
+               axis=1, inplace=True)
 
     return dataf
 
 
 def run_default_pipeline(dataf):
 
+    required_features_for_functions = {
+        update_referral_from: ["referral_from"],
+        add_allergy_features: ["allergies"],
+        add_ethnicity_features: ["ethnicity"],
+        add_ace_apls_features: ["age", "resp_rate", "heart_rate", "ox_sat",
+                                "gut_feeling", "illness_severity"],
+        add_free_text_features: ["medical_history", "examination_summary",
+                                 "recommendation"]
+    }
+
     dataf = (dataf.pipe(start_pipeline)
              .pipe(clean_data)
              .pipe(fill_nas))
 
-    if "referral_from" in dataf.columns:
-        dataf = dataf.pipe(update_referral_from)
-
-    if "allergies" in dataf.columns:
-        dataf = dataf.pipe(add_allergy_features)
-    else:
-        print("Warning: Allergies Missing - skipping")
-
-    if "ethnicity" in dataf.columns:
-        dataf = dataf.pipe(add_ethnicity_features)
-    else:
-        print("Warning: Ethnicity Missing - skipping")
-
-    required_ace_apls_features = ["age", "resp_rate", "heart_rate", "ox_sat",
-                                  "gut_feeling", "illness_severity"]
-    missing_ace_apls_features = [
-        feature for feature in required_ace_apls_features
-        if feature not in dataf.columns
-    ]
-    if missing_ace_apls_features:
-        print(f"Warning: {missing_ace_apls_features} missing - skipping")
-    else:
-        dataf = dataf.pipe(add_ace_apls_features)
-
-    text_features = ["medical_history", "examination_summary",
-                     "recommendation"]
-    missing_text_features = [feature for feature in text_features
-                             if feature not in dataf.columns]
-    if missing_text_features:
-        print(f"Warning: {missing_text_features} missing - skipping")
-    else:
-        dataf = dataf.pipe(add_free_text_features)
+    for function, required_features in required_features_for_functions.items():
+        contains_required_features = np.all(
+            [feature in dataf.columns
+             for feature in required_features]
+        )
+        if contains_required_features:
+            dataf = dataf.pipe(function)
+        else:
+            print(f"Required features missing to run {function}")
 
     return dataf
 

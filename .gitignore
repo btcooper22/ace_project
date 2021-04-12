@@ -1,0 +1,15 @@
+data/
+.idea/
+docs/
+ruaridhs_work/
+.ipynb_checkpoints
+exploration_files
+*.html
+*.xlsx
+*.pyc
+presentations/
+written_work/
+.DS_Store
+pymc3_error.ipynb
+samples/
+.Rproj.user

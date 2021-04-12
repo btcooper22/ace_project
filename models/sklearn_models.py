@@ -112,15 +112,17 @@ def return_lda_params(balanced=False):
 if __name__ == "__main__":
 
     data_loc = "/Users/samrelins/Documents/LIDA/ace_project/data/"
-    ace_data= pd.read_csv(data_loc + "ace_data_extra.csv")
+    outputs_dir = os.path.join(data_loc, "sklearn_models_outputs/")
+    if not os.path.isdir(outputs_dir):
+        os.mkdir(outputs_dir)
+    
+    ace_data_loc = os.path.join(data_loc, "ace_data_extra.csv")
+    ace_data= pd.read_csv(ace_data_loc)
     text_features = ["medical_history", "examination_summary", "recommendation"]
     X_train, y_train, X_test, y_test = return_train_test(
         ace_data.drop(text_features, axis=1)
     )
 
-    outputs_dir = data_loc + "sklearn_models_outputs/"
-    if not os.path.isdir(outputs_dir):
-        os.mkdir(outputs_dir)
 
     techniques_dict = {'K Nearest Neighbours': return_knn_params,
                        'Support Vector Machines': return_svm_params,
@@ -132,11 +134,11 @@ if __name__ == "__main__":
                        'Quadratic Discriminant Analysis': return_qda_params}
 
     data_prep_types = [
-        # "one_hot_balanced",
-        # "target_balanced",
-        # "one_hot_smote",
-        # "target_smote",
-        # "one_hot_undersample",
+        "one_hot_balanced",
+        "target_balanced",
+        "one_hot_smote",
+        "target_smote",
+        "one_hot_undersample",
         "target_undersample"
     ]
 

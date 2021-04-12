@@ -1,14 +1,13 @@
 import pandas as pd
 import numpy as np
-from imblearn.over_sampling import SMOTENC
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
-from category_encoders.leave_one_out import LeaveOneOutEncoder
 import re
 
-import nltk
-nltk.download("wordnet")
-nltk.download("stopwords")
+#import nltk
+## UNCOMMENT AND RUN WHEN FIRST USING NLTK - REQUIRES PACKAGE DOWNLOADS ##
+#nltk.download("wordnet")
+#nltk.download("stopwords")
+#####
 
 
 def start_pipeline(dataf):
@@ -132,15 +131,7 @@ def add_allergy_features(dataf):
     return dataf
 
 
-def add_ethnicity_features(dataf):
-    # new ethnicity features
-    # set reported ethnicity to other if not British / Pakistani
-    dataf["simple_ethnicity"] = dataf.ethnicity.apply(
-        lambda x: x if x in ["pakistani", "british"] else "other"
-    ).replace(np.nan, "other")
-
-    dataf["simple_ethnicity"] = dataf.simple_ethnicity.astype("category")
-
+def update_ethnicity_feature(dataf):
     # Group ethnicities into European / Asian / Other
     asian = ["indian", "mixed Asian", "pakistani", "white asain", "british asian",
              "asian", "sri Lankan", "other asian background", "bangladeshi"]
@@ -150,6 +141,7 @@ def add_ethnicity_features(dataf):
                 "other european", "mixed white"]
 
     dataf["group_ethnicity"] = "other"
+
     dataf.loc[dataf.ethnicity.isin(european), "group_ethnicity"] = "european"
     dataf.loc[dataf.ethnicity.isin(asian), "group_ethnicity"] = "asian"
 
@@ -266,56 +258,45 @@ def add_ace_apls_features(dataf):
 
 def add_free_text_features(dataf):
 
-    stopwords = set(nltk.corpus.stopwords.words("english"))
-    custom_stopwords = ["july", "and"]
-    for stopword in custom_stopwords:
-        stopwords.add(stopword)
+    def positive_mention_in_phrase(word, text):
+        hit = False
+        if word in text:
+            match_not = re.search(r"\bnot?\b", text)
+            if match_not:
+                not_end_pos = match_not.span()[1]
+                word_start_pos = re.search(word, text).span()[0]
+                gap = word_start_pos - not_end_pos
+                if gap < 1 or gap > 50:
+                    hit = True
+            else:
+                hit = True
+        return hit
 
-    lemmatizer = nltk.WordNetLemmatizer()
-    stemmer = nltk.SnowballStemmer("english")
-    tokenizer = nltk.tokenize.RegexpTokenizer(r"(\d+|[a-zA-Z]+)")
+    def mentions_asthma(note):
+        for phrase in re.split(r"[\n.,-]", note.lower()):
+            if positive_mention_in_phrase("asthm", phrase):
+                return True
+        return False
 
-    replace_words = {
-        "asthma": r"asthm\w+",
-        "wheeze": r"wheez\w+"
-    }
+    def mentions_salbutamol(note):
+        for phrase in re.split(r"[\n.,-]", note.lower()):
+            if positive_mention_in_phrase("salbut", phrase):
+                return True
+            elif "post" in phrase and "salbut" in phrase:
+                return True
+        return False
 
-    def ace_text_preprocessor(text):
-        text = text.lower()
-        for re_word in replace_words.keys():
-            text = re.sub(replace_words[re_word], re_word, text)
-        tokens = []
-        for token in tokenizer.tokenize(text):
-            if token.lower() not in stopwords:
-                lem_token = lemmatizer.lemmatize(token, pos='v')
-                stem_lem_token = stemmer.stem(lem_token)
-                tokens.append(stem_lem_token)
-        return " ".join(tokens)
+    dataf["mentions_asthma"] = dataf.medical_history.apply(
+        lambda note: "y" if mentions_asthma(note) else "n"
+    ).astype("category")
 
-    simple_text_features = {
-        "hist_montel": ("montel", "medical_history"),
-        "hist_wheez_episod": ("wheez episod", "medical_history"),
-        "hist_know_asthma": ("know asthma", "medical_history"),
-        "hist_asthma": ("asthma", "medical_history"),
-        "summary_salbutamol": ("salbutamol", "examination_summary"),
-        "recommend_prednisolon": ("prednisolon", "recommendation"),
-        "recommend_inhal": ("inhal", "recommendation"),
-        "recommend_spacer": ("spacer", "recommendation"),
-    }
+    dataf["mentions_salbutamol"] = dataf.examination_summary.apply(
+        lambda note: "y" if mentions_salbutamol(note) else "n"
+    ).astype("category")
 
-    def find_token(token, text):
-        preprocessed_text = ace_text_preprocessor(text)
-        return "y" if token in preprocessed_text else "n"
-
-    for new_feature, text_feature_tuple, in simple_text_features.items():
-        token, text_feature = text_feature_tuple
-        dataf[new_feature] = dataf[text_feature].apply(
-            lambda text: find_token(token, text)
-        ).astype("category")
-    dataf.drop(["medical_history",
-                "examination_summary",
-                "recommendation"],
-               axis=1, inplace=True)
+    dataf.drop(["medical_history", "examination_summary", "recommendation"],
+               axis=1,
+               inplace=True)
 
     return dataf
 
@@ -325,7 +306,7 @@ def run_default_pipeline(dataf):
     required_features_for_functions = {
         update_referral_from: ["referral_from"],
         add_allergy_features: ["allergies"],
-        add_ethnicity_features: ["ethnicity"],
+        update_ethnicity_feature: ["ethnicity"],
         add_ace_apls_features: ["age", "resp_rate", "heart_rate", "ox_sat",
                                 "gut_feeling", "illness_severity"],
         add_free_text_features: ["medical_history", "examination_summary",
@@ -362,98 +343,10 @@ def return_train_test(dataf, run_pipeline=True):
         test_size=0.33,
         stratify=dataf.hospital_reqd,
         random_state=1)
+    
+    for df in [X_train, y_train, X_test, y_test]:
+        df.reset_index(drop=True, inplace=True)
 
     return X_train, y_train, X_test, y_test
 
 
-def add_synthetic_examples(X_train, y_train):
-
-    n_orig_examples = len(X_train)
-    cat_feature_idxs = []
-    for i, col in enumerate(X_train.columns):
-        if not X_train[col].dtype in ["int", "float"]:
-            cat_feature_idxs.append(i)
-
-    smote = SMOTENC(random_state=1,
-                    categorical_features=cat_feature_idxs)
-
-    X_train, y_train = smote.fit_resample(X_train, y_train)
-
-    # create is synthetic feature
-    n_synthetic_examples = len(X_train) - n_orig_examples
-    is_synthetic = np.concatenate([np.zeros(n_orig_examples),
-                                  np.ones(n_synthetic_examples)])
-    X_train["is_synthetic"] = is_synthetic
-
-    return X_train, y_train
-
-
-def encode_and_scale(X_train, y_train, X_test, cat_encoder, scaled=False):
-
-    if cat_encoder not in ["one_hot", "target"]:
-        raise ValueError('Encoder must be one of "one_hot" or "target"')
-
-    for df in [X_train, y_train, X_test]:
-        df.reset_index(drop=True, inplace=True)
-
-    if "is_synthetic" in X_train.columns:
-        contains_synthetic_examples = True
-        synthetic = X_train.is_synthetic == 1
-        X_train.drop("is_synthetic", axis=1, inplace=True)
-    else:
-        contains_synthetic_examples = False
-
-    cat_features = [feature for feature in X_train.columns
-                    if X_train[feature].dtype.name == "category"]
-
-    num_features = [feature for feature in X_train.columns
-                    if feature not in cat_features]
-
-    if cat_encoder == "one_hot":
-
-        full_df = pd.concat([X_train, X_test])
-        encoder = OneHotEncoder(
-            sparse=False,
-            drop="if_binary"
-        ).fit(full_df[cat_features])
-
-        encoded_feature_names = []
-        for feature, categories, drop_idx in zip(cat_features,
-                                                 encoder.categories_,
-                                                 encoder.drop_idx_):
-            for idx, category in enumerate(categories):
-                if idx == drop_idx:
-                    continue
-                name = feature + '_' + category
-                encoded_feature_names.append(name)
-
-    elif cat_encoder == "target":
-
-        encoder = LeaveOneOutEncoder()
-        if contains_synthetic_examples:
-            encoder.fit(X_train[~synthetic][cat_features],
-                        y_train[~synthetic])
-        else:
-            encoder.fit(X_train[cat_features], y_train)
-        encoded_feature_names = cat_features
-
-    if scaled:
-        mm_scaler = MinMaxScaler().fit(X_train[num_features])
-
-    encoded_scaled_train_test = []
-    for df in [X_train, X_test]:
-        enc_cat_data = pd.DataFrame(encoder.transform(df[cat_features]),
-                                    columns=encoded_feature_names)
-
-        num_data = df[num_features]
-        if scaled:
-            num_data = pd.DataFrame(mm_scaler.transform(num_data),
-                                    columns=num_features)
-
-        encoded_df = pd.concat([enc_cat_data, num_data], axis=1)
-
-        encoded_scaled_train_test.append(encoded_df)
-
-    X_train, X_test, = encoded_scaled_train_test
-
-    return X_train, X_test

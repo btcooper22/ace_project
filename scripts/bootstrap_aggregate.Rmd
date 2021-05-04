@@ -1,0 +1,306 @@
+---
+title: "Bootstrap Aggregation Assessment"
+author: "Ben Cooper"
+date: "22/04/2021"
+output: pdf_document
+---
+
+```{r Packages}
+require(readr)
+require(caret)
+require(glmnet)
+require(foreach)
+require(dplyr)
+require(doParallel)
+require(tools)
+require(pROC)
+require(ResourceSelection)
+require(ggplot2)
+require(tidyr)
+require(tibble)
+require(magrittr)
+require(ggpol)
+require(matrixStats)
+require(bayestestR)
+
+source("functions/inverse_logit.R")
+```
+
+```{r Load and prepare data}
+# Load data
+results <- read.csv("data/ace_data_april21.csv")
+results$id <- 1:nrow(results)
+
+# Clean
+results$hospital_reqd <- results$hospital_reqd == 1
+
+# Scale
+results$ox_sat <- scale(results$ox_sat)
+results$temp <- scale(results$temp)
+results$resp_rate <- scale(results$resp_rate)
+results$heart_rate <- scale(results$heart_rate)
+
+# Add new variables
+results %<>% 
+  mutate(referral_from_gp = referral_from == "gp",
+         abnormal_resp_rate = apls_resp_rate_cat != "normal")
+```
+
+```{r Bagging function}
+bootstrap_aggregate <- function(df, nboot)
+{
+  # Fit model on bootstrapped dataset
+  model_coefficients <- foreach(j = 1:nboot, .combine = "rbind",
+                               .packages = c("dplyr", "caret",
+                                             "foreach"),
+                               .inorder = FALSE) %dopar%
+  {
+    set.seed(j)
+
+    # Subsample dataset with replacement
+    boot_df <- df %>% 
+      group_by(hospital_reqd) %>% 
+      slice_sample(prop = 0.75,
+                   replace = TRUE) %>%
+      ungroup()
+    
+    # Build model
+    model_instance <- glm(hospital_reqd ~ ox_sat + mentions_asthma +
+                            referral_from_gp + mentions_salbutamol +
+                            illness_severity + abnormal_resp_rate,
+                          data = boot_df, family = "binomial")
+    
+    # Post-predict to determine threshold
+    preds <- predict(model_instance, newdata = boot_df)
+    
+    tuning_df <- foreach(i = seq(-2.5,-0.5,0.05),
+                         .combine = "rbind") %do%
+      {
+        boot_df$hospital_reqd_pred <- preds > i
+        
+        conMat <- confusionMatrix(boot_df$hospital_reqd_pred %>% as.factor(),
+                                  boot_df$hospital_reqd %>% as.factor())
+        
+        data.frame(threshold = i,
+                   balanced_accuracy = conMat[["byClass"]][["Balanced Accuracy"]])
+      }
+    threshold <- tuning_df$threshold[tuning_df$balanced_accuracy == max(tuning_df$balanced_accuracy)]
+    
+   t(as.data.frame(coef(model_instance))) %>% 
+     cbind(threshold)
+  }
+  
+  # Process output
+  model_coefficients %<>% as_tibble()
+  return(model_coefficients)
+}
+```
+
+```{r Prediction function}
+# Debug
+# coef_df <- bootstrap_aggregate(results, 100)
+# newdata <- results %>%
+#   group_by(hospital_reqd) %>%
+#   slice_sample(prop = 0.2,
+#                replace = TRUE)
+
+predict_from_bagging <- function(newdata, coef_df)
+{
+  predicted_classes <- foreach(i = 1:nrow(coef_df),.combine = "cbind") %do%
+    {
+      # Extract coeffcients
+      coefs <- as.numeric(coef_df[i,])
+      names(coefs) <- names(coef_df)
+      
+      # Build equation
+      pred_y <- coefs[1] + (newdata$abnormal_resp_rate * coefs[2]) +
+        ((newdata$illness_severity == "moderate") * coefs[3]) +
+        ((newdata$mentions_asthma == "y") * coefs[4]) +
+        ((newdata$mentions_salbutamol == "y") * coefs[5]) +
+        (newdata$referral_from_gp * coefs[7]) +
+        (newdata$ox_sat * coefs[6])
+      
+      # Binarise predictions
+      as.numeric(pred_y > coefs[8])
+    }
+  return(predicted_classes)
+}
+```
+
+```{r Assessment function}
+# Debug
+# y <- newdata$hospital_reqd
+# y_pred <- predict_from_bagging(newdata, coef_df)
+
+model_assessment <- function(y, y_pred)
+{
+  # Generate confusion matrix from majority vote
+  conMat <- confusionMatrix(factor(rowMedians(y_pred) == 1),
+                            y %>% as.factor(),
+                            positive = "TRUE")
+  
+  # Generate AUC
+  roc_obj <- roc(response = y,
+                 predictor = as.numeric(rowMedians(y_pred) == 1),
+                 levels = c(FALSE, TRUE),
+                 direction = "<")
+  
+  
+  # Output
+  return(
+    data.frame(accuracy = conMat$overall[1],
+               kappa = conMat$overall[2],
+               sensitivity_recall = conMat$byClass[1],
+               specificity = conMat$byClass[2],
+               precision = conMat$byClass[5],
+               positive_predictive_value = conMat$byClass[3],
+               negative_predictive_value = conMat$byClass[4],
+               detection_rate = conMat$byClass[9],
+               detection_prevalence = conMat$byClass[10],
+               F1 = conMat$byClass[7],
+               balanced_accuracy = conMat$byClass[11],
+               AUC = ifelse(roc_obj$auc < 0.5, 1-roc_obj$auc,
+                            roc_obj$auc))
+  )
+}
+
+```
+
+No info rate - simply predict biggest class
+kappa -  0 is indicating no agreement , 0–0.20 as slight, 0.21–0.40 as fair, 0.41–0.60 as moderate, 0.61–0.80 as substantial, and 0.81–1 as almost perfect agreement.
+
+          Reference	
+Predicted	True	False
+True	      A	   B
+False   	  C	   D
+
+
+Sensitivity/Recall = A/(A+C)
+
+Specificity = D/(B+D)
+
+Prevalence = (A+C)/(A+B+C+D)
+
+PPV = (sensitivity * prevalence)/((sensitivity*prevalence) + ((1-specificity)*(1-prevalence)))
+
+NPV = (specificity * (1-prevalence))/(((1-sensitivity)*prevalence) + ((specificity)*(1-prevalence)))
+
+Detection Rate = A/(A+B+C+D)
+
+Detection Prevalence = (A+B)/(A+B+C+D)
+
+Balanced Accuracy = (sensitivity+specificity)/2
+
+F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
+
+```{r Main loop}
+# Set up parameters 
+nboot <- 1000
+ncycles <- 1000
+
+# Set up parallel
+ptm <- proc.time()
+psnice(value = 19)
+n_cores <- 15
+cl <- makeCluster(ifelse(detectCores() <= n_cores,
+                          detectCores() - 1,
+                          n_cores))
+registerDoParallel(cl)
+
+# Main loop
+model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
+  {
+    print(k)
+    set.seed(k)
+  
+    # Partition data for training and validation
+    patients_train <- results %>% 
+      group_by(hospital_reqd) %>% 
+      slice_sample(prop = 0.75)
+    
+    patients_validate <- results %>% 
+      filter(id %in% patients_train$id == FALSE)
+    
+    # Train model
+    model_collection <- bootstrap_aggregate(patients_train, nboot)
+    
+    # Store parameter estimates
+    parameters <- model_collection %>% 
+      pivot_longer(1:length(model_collection)) %>% 
+      group_by(name) %>% 
+      summarise(estimate = median(value)) %>% 
+      pivot_wider(names_from = "name",
+                  values_from = "estimate")
+    
+    # Predict from model collection
+    predicted_admission <- predict_from_bagging(patients_validate, model_collection)
+    
+    # Assess predictions
+    output <- model_assessment(y = patients_validate$hospital_reqd,
+                     y_pred = predicted_admission)
+    
+    return(cbind(output, parameters))
+  }
+stopCluster(cl)
+proc.time() - ptm #5h for 1000/1000
+
+# Write file
+write_rds(model_performance, "analysis/boostrap_aggregate.RDS")
+```
+
+```{r Plots}
+# Reload data
+results_plot <- read_rds("analysis/boostrap_aggregate.RDS")
+
+# Quick summary -> Performance
+results_plot %>% 
+  pivot_longer(1:12) %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+# Quick summary -> Coefficients
+results_plot %>% 
+  pivot_longer(13:20) %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+# Accuracy with no info rate
+results_plot %>% 
+  ggplot(aes(x = accuracy))+
+  geom_density(fill = "gray80")+
+  geom_vline(xintercept = 1 - mean(results$hospital_reqd),
+             linetype = "dashed")+
+  theme_classic(20)
+  
+# All other performance metrics
+results_plot %>% 
+  select(-accuracy,
+         -detection_prevalence) %>% 
+  pivot_longer(1:9) %>% 
+  ggplot(aes(x = value, fill = name))+
+  geom_density(alpha = 0.8)+
+  # geom_vline(aes(xintercept = median(value)),
+  #            linetype = "dashed")+
+  theme_classic(20)+
+  facet_wrap(~name, scales = "free")+
+  scale_fill_brewer(palette = "Set1")+
+  theme(legend.position = "none")
+
+# Coefficient estimates
+results_plot %>% 
+  pivot_longer(14:19) %>% 
+  group_by(name) %>% 
+  ggplot(aes(x = value, fill = name))+
+  geom_density(alpha = 0.8)+
+  # geom_vline(aes(xintercept = median(value)),
+  #            linetype = "dashed")+
+  theme_classic(20)+
+  scale_fill_brewer(palette = "Set1",
+                    name = "")+
+  theme(legend.position = "top")
+```
+

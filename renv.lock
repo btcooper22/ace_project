@@ -93,6 +93,13 @@
       "Repository": "CRAN",
       "Hash": "543776ae6848fde2f48ff3816d0628bc"
     },
+    "bayestestR": {
+      "Package": "bayestestR",
+      "Version": "0.9.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "af326db9a2494422ede70ee4b7676297"
+    },
     "bitops": {
       "Package": "bitops",
       "Version": "1.0-6",
@@ -310,6 +317,13 @@
       "Repository": "CRAN",
       "Hash": "af2c2531e55df5cf230c4b5444fc973c"
     },
+    "insight": {
+      "Package": "insight",
+      "Version": "0.13.2",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b83ce8d0ff3ae0cb853f662f20e2f6c3"
+    },
     "ipred": {
       "Package": "ipred",
       "Version": "0.9-11",
@@ -393,6 +407,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "61e4a10781dd00d7d81dd06ca9b94e95"
+    },
+    "matrixStats": {
+      "Package": "matrixStats",
+      "Version": "0.58.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "c318d148056e5bb8d7de79b0876f9ae6"
     },
     "mgcv": {
       "Package": "mgcv",

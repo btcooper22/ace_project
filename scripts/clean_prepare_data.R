@@ -82,4 +82,23 @@ results$safeguarding <- results$safeguarding == "Y"
 
 # Attaching spatial data----
 
-ace_data_LSOA <- read_excel("data/ace_data_LSOA.xlsx")
+# Load spatial stats
+air_data <- read_csv("spatial/area_stats/bradford_air_LSOA.csv") %>%
+  rename("LSOA" = lsoa11cd)
+imd_data <- read_csv("spatial/area_stats/bradford_imd_LSOA.csv") %>%
+  rename("LSOA" = lsoa11cd)
+
+# Load LSOA conversion and add spatial data
+ace_data_LSOA <- read_excel("data/ace_data_LSOA.xlsx")[,c(2,4)] %>% 
+  left_join(air_data) %>% 
+  left_join(imd_data) %>% 
+  filter(!duplicated(pkid))
+
+# Add to main results
+results %<>% 
+  mutate(id = as.character(id)) %>% 
+  left_join(ace_data_LSOA,
+            by = c("id" = "pkid"))
+
+# Write
+write_csv(results, "data/full_results.csv")

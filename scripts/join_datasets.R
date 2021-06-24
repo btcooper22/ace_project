@@ -213,5 +213,4 @@ combined_dataset <- ace_spreadsheet %>%
   inner_join(ace_df, by = c("Age", "Address", "GPSurgery",
                             "Hospital Required?", "No of days bed saved",
                             "Ethnicity", "Referral from"))
-
-
+write_csv(combined_dataset, "data/ace_data_linked.csv")

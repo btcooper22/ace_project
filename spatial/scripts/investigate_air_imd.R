@@ -6,6 +6,7 @@ require(magrittr)
 require(tidyr)
 require(ggbump)
 require(readxl)
+require(foreach)
 
 # Cross-tabulation function
 crosstab <- function(varname, .df = results)
@@ -102,7 +103,7 @@ results %<>%
 level_labels <- c("VeryLow", "Low", "Medium",
                    "High", "VeryHigh")
 results %<>% 
-  mutate(NO2_cut = cut(NO2, 5, labels = level_labels),
+  mutate(`NO2`_cut = cut(NO2, 5, labels = level_labels),
          NOx_cut = cut(NOx, 5, labels = level_labels),
          PM10_cut = cut(PM10, 5, labels = level_labels),
          PM25_cut = cut(PM25, 5, labels = level_labels))
@@ -211,13 +212,126 @@ cut_bump("WBScore", Q = TRUE) # None
 # Construct new variables----
 
 # List variables worth investigation
+variables_of_interest <- c("NO2", "NOx", "PM10", "PM25", "ASScore",
+                           "CriScore", "CYPScore", "EduScore",
+                           "HDDScore", "IDCScore", "IMDScore")
 
+division_results <- foreach(i = 1:length(variables_of_interest),
+        .combine = "rbind") %do%
+  {
+    # Extract to data frame
+    print(variables_of_interest[i])
+    var_df <- results %>% 
+      select(any_of(c("hosp_reqd", variables_of_interest[i]))) %>% 
+      rename("value" = variables_of_interest[i])
+    
+    # Find limits and build sequence
+    limits <- quantile(var_df$value, c(0.025, 0.975))
+    divisions_seq <- seq(limits[1], limits[2], length.out = 50)
+    
+    # Inner loop for divisions
+    profile <- foreach(d = 1:length(divisions_seq),
+            .combine = "rbind") %do%
+      {
+        # Binarise variable
+        var_df$value_bin <- var_df$value > divisions_seq[d]
+        
+        # Build model
+        mod <- glm(hosp_reqd ~ value_bin, data = var_df,
+                   family = "binomial")
+        
+        # Extract confidence interval
+        conf_inteval <- suppressMessages(confint(mod)) 
+        
+        # Output
+        data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+                   L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+      }
+    
+    # Add variable name
+    profile$varname <- variables_of_interest[i]
+    
+    # Calculate CI width 
+    profile$CI_width <- abs(profile$U95 - profile$L95)
+    
+    # Calculate periods where effect direction is consistant
+    profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+    
+    # Check for any periods that match the above
+    if(any(profile$CI_dir_const))
+    {
+     output <- profile %>% 
+        filter(CI_dir_const == TRUE) %>% 
+        slice_min(CI_width)
+    }else
+    {
+      output <- profile %>% 
+        slice_min(CI_width)
+    }
+    
+    # Prepare output
+    output %>% 
+      slice_head(n = 1)
+  }
+
+# Construct new variables from divisions
 results %<>% 
-  mutate(NO2_high = NO2_cut %in% c("High", "VeryHigh"),
-         NOx_high = NOx_cut %in% c("High", "VeryHigh"),
-         PM10_high = PM10_cut %in% c("VeryLow", "Low") == FALSE,
-         PM25_high = PM25_cut %in% c("VeryLow", "Low") == FALSE)
-
+  mutate(high_NO2 = NO2 > division_results$div[1],
+         high_NOx = NOx > division_results$div[2],
+         high_PM10 = PM10 > division_results$div[3],
+         high_PM25 = PM25 > division_results$div[4],
+         high_ASScore = ASScore > division_results$div[5],
+         high_CriScore = CriScore > division_results$div[6],
+         high_CYPScore = CYPScore > division_results$div[7],
+         high_EduScore = EduScore > division_results$div[8],
+         high_HDDScore = HDDScore > division_results$div[9],
+         high_IDCScore = IDCScore > division_results$div[10],
+         high_IMDScore = IMDScore > division_results$div[11],
+  )
 
 # Model
 # Previous model - mentions asthma, mentions salbutamol, referral from GP, moderate severity, abnormal resp. rate
+
+# NO2 - 0.650, p = 0.0129
+summary(glm(hosp_reqd ~ high_NO2, data = results,
+            family = "binomial"))
+
+# NOx - 0.650, p = 0.0129
+summary(glm(hosp_reqd ~ high_NOx, data = results,
+            family = "binomial"))
+
+# PM10 - 0.527, p = 0.0236
+summary(glm(hosp_reqd ~ high_PM10, data = results,
+            family = "binomial"))
+
+# PM25 - NS
+summary(glm(hosp_reqd ~ high_PM25, data = results,
+            family = "binomial"))
+
+# Adult Skills Sub-domain Score - NS
+summary(glm(hosp_reqd ~ high_ASScore, data = results,
+            family = "binomial"))
+
+# Crime Score - 0.627, p - 0.0365
+summary(glm(hosp_reqd ~ high_CriScore, data = results,
+            family = "binomial"))
+
+# Children and Young People Sub-domain Score - 0.471, p = 0.0386
+summary(glm(hosp_reqd ~ high_CYPScore, data = results,
+            family = "binomial"))
+
+# Education, Skills and Training Score - 0.471, p = 0.0441
+summary(glm(hosp_reqd ~ high_EduScore, data = results,
+            family = "binomial"))
+
+# Health Deprivation and Disability Score - NS
+summary(glm(hosp_reqd ~ high_HDDScore, data = results,
+            family = "binomial"))
+
+# Income Deprivation Affecting Children Index (IDACI) Score - 0.471, p = 0.0386
+summary(glm(hosp_reqd ~ high_IDCScore, data = results,
+            family = "binomial"))
+
+# Index of Multiple Deprivation (IMD) Score - NS
+summary(glm(hosp_reqd ~ high_IMDScore, data = results,
+            family = "binomial"))

@@ -5,6 +5,8 @@ require(dbplyr)
 require(magrittr)
 require(stringr)
 
+bq_auth(email= "b.cooper@yhcr.nhs.uk")
+
 con <- dbConnect(
   bigrquery::bigquery(),
   project = "yhcr-prd-phm-bia-core",
@@ -18,6 +20,7 @@ table_list <- table_list[seq(3, length(table_list), by = 3)] %>% unname()
 CY <- list()
 
 # Loading loop
+print(noquote("Loading Connected Yorkshire..."))
 for(i in 1:length(table_list))
 {
   # Generate name

@@ -139,4 +139,4 @@ query_results <- tbl(con, "tbl_cooper_prescription_qry") %>%
 
 # Write results
 query_results %>% 
-  write_csv("data/cBradford/comorbidities.csv")
+  write_csv("data/cBradford/prescriptions.csv")

@@ -37,9 +37,9 @@ D_conditions <- condition_concepts %>%
   select(concept_id, concept_name)
 
 # Write conditions to file for easier searching
-D_conditions %>% 
-  select(concept_id, concept_name) %>% 
-  write_csv("data/cBradford/conditions.csv")
+# D_conditions %>% 
+#   select(concept_id, concept_name) %>% 
+#   write_csv("data/cBradford/conditions.csv")
 
 # List comorbidities (from DOI = 10.1183/09031936.00121308)
 comorbs <- c("rhinitis" = "rhinitis", "chronic_sinusitis" = "chronic sinusitis",
@@ -106,4 +106,22 @@ loaded_q <- read_file("scripts/queries/cooper_comorbidity_query.sql")
 test_sql <- bq_dataset_query(bq_dataset("yhcr-prd-phm-bia-core", "CY_CDM_V1_50k_Random"),
                              query = loaded_q, billing = "yhcr-prd-phm-bia-core")
 
+# Load in query results
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "yhcr-prd-phm-bia-core",
+  dataset = "CY_MYSPACE_BC"
+)
 
+query_results <- tbl(con, "tbl_cooper_comorbity_query") %>% 
+  collect()
+
+# Add metadata
+comorb_results <- query_results %>% 
+  left_join(comorbidity_codes,
+            by = c("concept_name" = "name",
+                   "condition_concept_id" = "concept_id"))
+
+# Write results
+comorb_results %>% 
+  write_csv("data/cBradford/comorbidities.csv")

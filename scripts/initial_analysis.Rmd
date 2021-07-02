@@ -24,7 +24,7 @@ require(ggpol)
 source("functions/inverse_logit.R")
 ```
 
-So here, to goal is to 'replicate' Sam's work. By which I mean 'use lasso logistic regression to develop and test a mode', but here with the additional data added in. The assumption/hypothesis is that this still won't have that good predictive power.
+So here, to goal is to 'replicate' Sam's work. By which I mean 'use lasso logistic regression to develop and test a model', but here with the additional data added in. The assumption/hypothesis is that this still won't have that good predictive power.
 
 ```{r Load and prepare data}
 # Load data
@@ -78,7 +78,8 @@ boot_results <- foreach(i = 1:nboot, .combine = "rbind",
     # Split data
     train_df <- results %>% 
       group_by(hospital_reqd) %>% 
-      slice_sample(prop = 0.5) %>% 
+      slice_sample(prop = 0.5,
+                   replace = TRUE) %>% 
       select(all_of(feature_id))
     
     # Remove variables with only one factor level
@@ -141,7 +142,8 @@ model_performance <- foreach(j = 1:nboot, .combine = "rbind",
     # Set splits
     train_df <- results %>% 
       group_by(hospital_reqd) %>% 
-      slice_sample(prop = 0.75) %>%
+      slice_sample(prop = 0.75,
+                   replace = TRUE) %>%
       ungroup()
     
     # Build model
@@ -232,8 +234,9 @@ pred <- prediction(probs_df$probs,
 performance(pred, measure = "auc")@y.values[[1]]
 
 # Plot
-plot(performance(pred, "tpr", "fpr") +
-       abline(0, 1))
+plot(performance(pred, "tpr", "fpr"),
+     col = "red")
+abline(0, 1)
 
 # Calibration
 hoslem.test(probs_df$outcome,

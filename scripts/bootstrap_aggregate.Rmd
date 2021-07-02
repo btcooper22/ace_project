@@ -22,6 +22,7 @@ require(magrittr)
 require(ggpol)
 require(matrixStats)
 require(bayestestR)
+require(stringr)
 
 source("functions/inverse_logit.R")
 ```
@@ -44,6 +45,29 @@ results$heart_rate <- scale(results$heart_rate)
 results %<>% 
   mutate(referral_from_gp = referral_from == "gp",
          abnormal_resp_rate = apls_resp_rate_cat != "normal")
+
+# Load air and IMD data at postcode distict level
+air_database <- read_csv("spatial/area_stats/bradford_air_district.csv")
+IMD_database <- read_csv("spatial/area_stats/bradford_imd_district.csv")
+
+# Convert postcodes to lowercase with spacing
+air_database$pcdhl <-  substr(air_database$pcdhl,3,4) %>% 
+  str_pad(2,"left", 0) %>% 
+  paste(casefold(air_database$pcdhl) %>% 
+          substr(1, 2), ., sep = "")
+
+IMD_database$pcdhl <-  substr(IMD_database$pcdhl,3,4) %>% 
+  str_pad(2,"left", 0) %>% 
+  paste(casefold(IMD_database$pcdhl) %>% 
+          substr(1, 2), ., sep = "")
+
+# Join air and IMD data to results
+results %<>% 
+  left_join(air_database, by = c("address" = "pcdhl")) %>% 
+  left_join(IMD_database, by = c("address" = "pcdhl")) %>% 
+  na.omit()
+
+results[,36:60] <- scale(results[,36:60])
 ```
 
 ```{r Bagging function}
@@ -67,7 +91,8 @@ bootstrap_aggregate <- function(df, nboot)
     # Build model
     model_instance <- glm(hospital_reqd ~ ox_sat + mentions_asthma +
                             referral_from_gp + mentions_salbutamol +
-                            illness_severity + abnormal_resp_rate,
+                            illness_severity + abnormal_resp_rate +
+                            NO2 + DepChi + IMDScore,
                           data = boot_df, family = "binomial")
     
     # Post-predict to determine threshold
@@ -118,10 +143,13 @@ predict_from_bagging <- function(newdata, coef_df)
         ((newdata$mentions_asthma == "y") * coefs[4]) +
         ((newdata$mentions_salbutamol == "y") * coefs[5]) +
         (newdata$referral_from_gp * coefs[7]) +
-        (newdata$ox_sat * coefs[6])
+        (newdata$ox_sat * coefs[6]) +
+        (newdata$NO2 * coefs[8]) +
+        (newdata$DepChi * coefs[9]) +
+        (newdata$IMDScore * coefs[10])
       
       # Binarise predictions
-      as.numeric(pred_y > coefs[8])
+      as.numeric(pred_y > coefs[11])
     }
   return(predicted_classes)
 }
@@ -144,8 +172,7 @@ model_assessment <- function(y, y_pred)
                  predictor = as.numeric(rowMedians(y_pred) == 1),
                  levels = c(FALSE, TRUE),
                  direction = "<")
-  
-  
+
   # Output
   return(
     data.frame(accuracy = conMat$overall[1],
@@ -195,8 +222,8 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 
 ```{r Main loop}
 # Set up parameters 
-nboot <- 1000
-ncycles <- 1000
+nboot <- 100
+ncycles <- 100
 
 # Set up parallel
 ptm <- proc.time()
@@ -254,6 +281,15 @@ results_plot <- read_rds("analysis/boostrap_aggregate.RDS")
 
 # Quick summary -> Performance
 results_plot %>% 
+  na.omit() %>% 
+  pivot_longer(1:12) %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+read_rds("analysis/boostrap_aggregate_1000_1000.RDS") %>% 
+  na.omit() %>% 
   pivot_longer(1:12) %>% 
   group_by(name) %>% 
   summarise(median = median(value),

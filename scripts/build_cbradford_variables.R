@@ -55,8 +55,7 @@ results <- tbl(con, "tmp_ACE_v2") %>%
   na.omit() %>% 
   mutate(date = as.Date(date, format = c("%d/%m/%Y")))
 
-# Comorbidities
-# Load and examine
+# Comorbidities: Load and examine
 comorbidities <- read_csv("data/cBradford/comorbidities.csv")
 table(comorbidities$comorbidity)
 
@@ -360,7 +359,7 @@ quick_glm("respiratory_year", results_respiratory) # Yes
 quick_glm("respiratory_6m", results_respiratory) # Yes
 quick_glm("respiratory_1m", results_respiratory) # Yes
 
-# Bronchitis
+# Bronchitis----
 patients_bronchitis <- comorbidities %>% 
   filter(comorbidity == "respiratory_infection" &
            term == "bronchitis")
@@ -420,7 +419,7 @@ quick_glm("bronchitis_year", results_bronchitis) # Yes
 quick_glm("bronchitis_6m", results_bronchitis) # Yes
 quick_glm("bronchitis_1m", results_bronchitis) # Yes
 
-# Pneumonia
+# Pneumonia----
 patients_pneumonia <- comorbidities %>% 
   filter(comorbidity == "respiratory_infection" &
            term == "pneumonia")
@@ -479,3 +478,313 @@ quick_glm("pneumonia_any", results_pneumonia) # Yes
 quick_glm("pneumonia_year", results_pneumonia) # Yes
 quick_glm("pneumonia_6m", results_pneumonia) # Yes
 quick_glm("pneumonia_1m", results_pneumonia) # Yes
+
+# Prescriptions: Load and examine----
+prescriptions <- read_csv("data/cBradford/prescriptions.csv")
+table(prescriptions$class)
+
+# Number of inhalers
+prescriptions %<>% 
+  mutate(inhaler = grepl("inhaler", dose_unit_source_value)) %>% 
+  mutate(n_inhaler = ifelse(inhaler, substr(dose_unit_source_value, 1, 1), 0) %>% 
+           as.numeric())
+
+# Count number of inhalers in last X
+patients_inhalers <- prescriptions %>% 
+  filter(inhaler == TRUE)
+
+# Quick count function
+count_or_zero <- function(df)
+{
+  if(nrow(df) == 0)
+  {
+    return(0)
+  }else
+  {
+    return(sum(df$n_inhaler))
+  }
+}
+
+results_inhalers <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in inhalers database
+    inhalers_subset <- patients_inhalers %>% 
+      filter(person_id == pid)
+    
+    # Extract inhaler types
+    relievers <-  inhalers_subset %>% 
+      filter(class == "fast_bronchodilator")
+    
+    preventers <- inhalers_subset %>% 
+      filter(class == "slow_bronchodilator")
+    
+    # Total
+    inhalers_total <- count_or_zero(inhalers_subset)
+    relievers_total <- count_or_zero(relievers)
+    preventers_total <- count_or_zero(preventers)
+    
+    # Last three years
+    inhalers_3y <- count_or_zero(inhalers_subset %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 1095))
+                                 )
+    relievers_3y <- count_or_zero(relievers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 1095))
+    )
+    preventers_3y <- count_or_zero(preventers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 1095))
+    )
+    
+    # Last year
+    inhalers_1y <- count_or_zero(inhalers_subset %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 365))
+    )
+    relievers_1y <- count_or_zero(relievers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 365))
+    )
+    preventers_1y <- count_or_zero(preventers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 365))
+    )
+    
+    # Last six months
+    inhalers_6m <- count_or_zero(inhalers_subset %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 182))
+    )
+    relievers_6m <- count_or_zero(relievers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 182))
+    )
+    preventers_6m <- count_or_zero(preventers %>% 
+                                   filter(drug_exposure_start_date > (date_instance - 182))
+    )
+    
+    # Output
+    data.frame(results[i,], inhalers_total, inhalers_3y, inhalers_1y, inhalers_6m,
+               relievers_total, relievers_3y, relievers_1y, relievers_6m, 
+               preventers_total, preventers_3y, preventers_1y, preventers_6m)
+  }
+
+quick_glm("inhalers_total", results_inhalers)
+
+# Find limits and build sequence
+divisions_seq <- 1:67
+
+# Inner loop for divisions
+profile <- foreach(d = 1:length(divisions_seq),
+                   .combine = "rbind") %do%
+  {
+    # Binarise variable
+    results_inhalers$inhalers_total_bin <- results_inhalers$inhalers_total > divisions_seq[d]
+    
+    # Build model
+    mod <- glm(hosp_reqd ~ inhalers_total_bin, data = results_inhalers,
+               family = "binomial")
+    
+    # Extract confidence interval
+    conf_inteval <- suppressMessages(confint(mod)) 
+    
+    # Output
+    data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+               L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+  }
+summary(glm(hosp_reqd ~ (inhalers_total > 12), "binomial", results_inhalers)) # Sure, why not
+
+# Antihistamines----
+patients_antihistamine <- prescriptions %>% 
+  filter(class == "antihistamine")
+
+results_antihistamine <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in antihistamine database
+    antihistamine_subset <- patients_antihistamine %>% 
+      filter(person_id == pid)
+    
+    if(nrow(antihistamine_subset) == 0)
+    {
+      antihistamine_any <- FALSE
+      antihistamine_year <- FALSE
+      antihistamine_6m <- FALSE
+      antihistamine_1m <- FALSE
+    }else
+    {
+      # Any antihistamine presciption
+      antihistamine_any <- TRUE
+      
+      # Find time difference
+      recent_antihistamine <- max(antihistamine_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_antihistamine) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # antihistamine presciption within year
+      antihistamine_year <- time_diff < 365
+      
+      # antihistamine presciption within 6 months
+      antihistamine_6m <- time_diff < 182
+      
+      # antihistamine presciption within 1 month
+      antihistamine_1m <- time_diff <= 31
+    }
+    
+    # Output
+    data.frame(results[i,], antihistamine_any, antihistamine_year,
+               antihistamine_6m, antihistamine_1m)
+  }
+
+crosstab("antihistamine_any", results_antihistamine) 
+crosstab("antihistamine_year", results_antihistamine) 
+crosstab("antihistamine_6m", results_antihistamine)
+crosstab("antihistamine_1m", results_antihistamine)
+
+quick_glm("antihistamine_any", results_antihistamine) # No 
+quick_glm("antihistamine_year", results_antihistamine) # No
+quick_glm("antihistamine_6m", results_antihistamine) # No
+quick_glm("antihistamine_1m", results_antihistamine) # No
+
+# Prednisolone----
+patients_prednisolone <- prescriptions %>% 
+  filter(class == "prednisolone")
+
+results_prednisolone <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in prednisolone database
+    prednisolone_subset <- patients_prednisolone %>% 
+      filter(person_id == pid)
+    
+    if(nrow(prednisolone_subset) == 0)
+    {
+      prednisolone_any <- FALSE
+      prednisolone_courses_total <- 0
+      prednisolone_year <- FALSE
+      prednisolone_courses_year <- 0
+      prednisolone_6m <- FALSE
+      prednisolone_courses_6m <- 0
+      prednisolone_1m <- FALSE
+      prednisolone_courses_1m <- 0
+    }else
+    {
+      # Any prednisolone presciption
+      prednisolone_any <- TRUE
+      prednisolone_courses_total <- nrow(prednisolone_subset)
+      
+      # Find time difference
+      recent_prednisolone <- max(prednisolone_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_prednisolone) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # prednisolone presciption within year
+      prednisolone_year <- time_diff < 365
+      prednisolone_courses_year <- nrow(prednisolone_subset %>% filter(time_diff < 365))
+      
+      # prednisolone presciption within 6 months
+      prednisolone_6m <- time_diff < 182
+      prednisolone_courses_6m <- nrow(prednisolone_subset %>% filter(time_diff < 182))
+      
+      # prednisolone presciption within 1 month
+      prednisolone_1m <- time_diff <= 31
+      prednisolone_courses_1m <- nrow(prednisolone_subset %>% filter(time_diff <= 31))
+    }
+    
+    # Output
+    data.frame(results[i,], prednisolone_any, prednisolone_courses_total, 
+               prednisolone_year, prednisolone_courses_year,
+               prednisolone_6m, prednisolone_courses_6m,
+               prednisolone_1m, prednisolone_courses_1m)
+  }
+
+crosstab("prednisolone_any", results_prednisolone) 
+crosstab("prednisolone_year", results_prednisolone) 
+crosstab("prednisolone_6m", results_prednisolone)
+crosstab("prednisolone_1m", results_prednisolone)
+
+quick_glm("prednisolone_any", results_prednisolone) # Kind of 
+quick_glm("prednisolone_year", results_prednisolone) # Yes
+quick_glm("prednisolone_6m", results_prednisolone) # Yes
+quick_glm("prednisolone_1m", results_prednisolone) # Yes
+
+# List variables worth investigation
+variables_of_interest <- c("prednisolone_courses_total",
+                           "prednisolone_courses_year",
+                           "prednisolone_courses_6m",
+                           "prednisolone_courses_1m")
+
+division_results <- foreach(i = 1:length(variables_of_interest),
+                            .combine = "rbind") %do%
+  {
+    # Extract to data frame
+    print(variables_of_interest[i])
+    var_df <- results_prednisolone %>% 
+      select(any_of(c("hosp_reqd", variables_of_interest[i]))) %>% 
+      rename("value" = variables_of_interest[i])
+    
+    # Find limits and build sequence
+    limits <- quantile(var_df$value, c(0.01, 0.99))
+    divisions_seq <- unique(round(seq(limits[1], limits[2], length.out = 50)))
+    
+    # Inner loop for divisions
+    profile <- foreach(d = 1:length(divisions_seq),
+                       .combine = "rbind") %do%
+      {
+        # Binarise variable
+        var_df$value_bin <- var_df$value > divisions_seq[d]
+        
+        # Build model
+        mod <- glm(hosp_reqd ~ value_bin, data = var_df,
+                   family = "binomial")
+        
+        # Extract confidence interval
+        conf_inteval <- suppressMessages(confint(mod)) 
+        
+        # Output
+        data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+                   L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+      }
+    
+    # Add variable name
+    profile$varname <- variables_of_interest[i]
+    
+    # Calculate CI width 
+    profile$CI_width <- abs(profile$U95 - profile$L95)
+    
+    # Calculate periods where effect direction is consistant
+    profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+    
+    # Check for any periods that match the above
+    if(any(profile$CI_dir_const))
+    {
+      output <- profile %>% 
+        filter(CI_dir_const == TRUE) %>% 
+        slice_min(CI_width)
+    }else
+    {
+      output <- profile %>% 
+        slice_min(CI_width)
+    }
+    
+    # Prepare output
+    output %>% 
+      slice_head(n = 1)
+  }
+
+with(results_prednisolone, table(hosp_reqd, prednisolone_courses_total > 3))
+summary(glm(hosp_reqd ~ (prednisolone_courses_total > 3),
+            "binomial",results_prednisolone)) # Yes
+
+# Prepare output of useful variables

@@ -10,14 +10,39 @@ require(magrittr)
 require(readxl)
 require(tibble)
 require(geosphere)
+require(bigrquery)
+require(DBI)
+require(dbplyr)
+
+bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
 # Load data
-patients <- read_xlsx("data/ace_data_LSOA.xlsx") %>% 
-  select(pkid, LSOA, Outcome_for_care_episode,
-         GPSurgery) %>% 
-  filter(Outcome_for_care_episode != "NA") %>% 
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "yhcr-prd-phm-bia-core",
+  dataset = "CY_MYSPACE_BC"
+)
+
+patients <- tbl(con, "tmp_ACE_v2") %>% 
+  filter(Outcome_for_care_episode != "NA" &
+           Referral_accepted == "Yes",
+         Reason_for_Referral == "Wheezy child") %>% 
+  select(person_id, date = Date_of_referral_accepted,
+         Outcome_for_care_episode, GPSurgery) %>% 
+  collect() %>% 
   mutate(hosp_reqd = grepl("Admitted", Outcome_for_care_episode)) %>% 
-  select(-Outcome_for_care_episode)
+  select(-Outcome_for_care_episode) %>% 
+  na.omit() %>% 
+  mutate(date = as.Date(date, format = c("%d/%m/%Y")),
+         person_id = as.character(person_id))
+
+# Load LSOA and attach
+LSOA_df <- read_xlsx("data/ace_data_LSOA.xlsx") %>% 
+  select(pkid, LSOA) %>% 
+  filter(!duplicated(pkid))
+
+patients %<>% 
+  left_join(LSOA_df, c("person_id" = "pkid"))
 
 # Read LSOA translation data
 postcode_gridref <- read_csv("spatial/data/grid/postcode_gridref.csv") %>% 
@@ -78,13 +103,106 @@ results <- foreach(i = 1:nrow(patients),.combine = "rbind") %do%
      data.frame(patients[i,], surgery_distance,
                 hospital_distance = min(c(royal_infirmary_distance,
                                           st_lukes_distance)))
+  } %>% 
+  mutate(log_surgery_distance = log(surgery_distance),
+         log_hospital_distance = log(hospital_distance))
+
+# Assess results
+summary(glm(hosp_reqd ~ log_surgery_distance, data = results,
+            family = "binomial")) # Yes
+
+summary(glm(hosp_reqd ~ log_hospital_distance, data = results,
+            family = "binomial")) # No
+
+summary(glm(hosp_reqd ~ surgery_distance, data = results,
+            family = "binomial")) # No
+
+summary(glm(hosp_reqd ~ hospital_distance, data = results,
+            family = "binomial")) # No
+
+# Binarisation
+variables_of_interest <- c("surgery_distance", "log_surgery_distance",
+                           "hospital_distance", "log_hospital_distance")
+
+division_results <- foreach(i = 1:length(variables_of_interest),
+                            .combine = "rbind") %do%
+  {
+    # Extract to data frame
+    print(variables_of_interest[i])
+    var_df <- results %>% 
+      select(any_of(c("hosp_reqd", variables_of_interest[i]))) %>% 
+      rename("value" = variables_of_interest[i])
+    
+    # Find limits and build sequence
+    limits <- quantile(var_df$value, c(0.025, 0.975))
+    divisions_seq <- seq(limits[1], limits[2], length.out = 50)
+    
+    # Inner loop for divisions
+    profile <- foreach(d = 1:length(divisions_seq),
+                       .combine = "rbind") %do%
+      {
+        # Binarise variable
+        var_df$value_bin <- var_df$value > divisions_seq[d]
+        
+        # Build model
+        mod <- glm(hosp_reqd ~ value_bin, data = var_df,
+                   family = "binomial")
+        
+        # Extract confidence interval
+        conf_inteval <- suppressMessages(confint(mod)) 
+        
+        # Output
+        data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+                   L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+      }
+    
+    # Add variable name
+    profile$varname <- variables_of_interest[i]
+    
+    # Calculate CI width 
+    profile$CI_width <- abs(profile$U95 - profile$L95)
+    
+    # Calculate periods where effect direction is consistant
+    profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+    
+    # Check for any periods that match the above
+    if(any(profile$CI_dir_const))
+    {
+      output <- profile %>% 
+        filter(CI_dir_const == TRUE) %>% 
+        slice_min(CI_width)
+    }else
+    {
+      output <- profile %>% 
+        slice_min(CI_width)
+    }
+    
+    # Prepare output
+    output %>% 
+      slice_head(n = 1)
   }
 
-summary(glm(hosp_reqd ~ log(surgery_distance), data = results,
-            family = "binomial"))
+# Explore binarised results
+summary(glm(hosp_reqd ~ (surgery_distance > division_results$div[1]),
+            "binomial", results)) # Yes
 
-summary(glm(hosp_reqd ~ log(hospital_distance), data = results,
-            family = "binomial"))
+summary(glm(hosp_reqd ~ (log_surgery_distance > division_results$div[2]),
+            "binomial", results)) # Yes
 
-plot(log(results$surgery_distance),
-     results$hosp_reqd)
+summary(glm(hosp_reqd ~ (hospital_distance > division_results$div[3]),
+            "binomial", results)) # Yes
+
+summary(glm(hosp_reqd ~ (log_hospital_distance > division_results$div[4]),
+            "binomial", results)) # Yes
+
+# Write to file
+results %>% 
+  mutate(high_surgery_distance = surgery_distance > division_results$div[1],
+         high_log_surgery_distance = log_surgery_distance > division_results$div[2],
+         high_hospital_distance = hospital_distance > division_results$div[3],
+         high_log_hospital_distance = log_hospital_distance > division_results$div[4]) %>% 
+  select(person_id, date, hosp_reqd,
+         log_surgery_distance,
+         high_surgery_distance, high_log_surgery_distance,
+         high_hospital_distance, high_log_hospital_distance) %>% 
+  write_csv("data/new_features/distance.csv")

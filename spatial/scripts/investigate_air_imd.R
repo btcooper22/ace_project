@@ -7,6 +7,11 @@ require(tidyr)
 require(ggbump)
 require(readxl)
 require(foreach)
+require(bigrquery)
+require(DBI)
+require(dbplyr)
+
+bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
 # Cross-tabulation function
 crosstab <- function(varname, .df = results)
@@ -35,13 +40,13 @@ cut_bump <- function(varname, .df = results,
   # Cut variable
   if(Q)
   {
+    qlist <- seq(0, 1, 0.2)
     cut_df <- .df  %>% 
       mutate(cut_var = cut(get(varname), quantile(get(varname), qlist),
                            labels = c("VeryLow", "Low", "Medium",
                                       "High", "VeryHigh"), TRUE)) 
   }else
   {
-    qlist <- seq(0, 1, 0.2)
     cut_df <- .df  %>% 
       mutate(cut_var = cut(get(varname), 5, labels = c("VeryLow", "Low", "Medium",
                                                        "High", "VeryHigh"))) 
@@ -79,11 +84,32 @@ cut_bump <- function(varname, .df = results,
 }
 
 # Load data----
-results <- read_xlsx("data/ace_data_LSOA.xlsx") %>% 
-  select(pkid, LSOA, Outcome_for_care_episode) %>% 
-  filter(Outcome_for_care_episode != "NA") %>% 
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "yhcr-prd-phm-bia-core",
+  dataset = "CY_MYSPACE_BC"
+)
+
+results <- tbl(con, "tmp_ACE_v2") %>% 
+  filter(Outcome_for_care_episode != "NA" &
+           Referral_accepted == "Yes",
+         Reason_for_Referral == "Wheezy child") %>% 
+  select(person_id, date = Date_of_referral_accepted,
+         Outcome_for_care_episode) %>% 
+  collect() %>% 
   mutate(hosp_reqd = grepl("Admitted", Outcome_for_care_episode)) %>% 
-  select(-Outcome_for_care_episode)
+  select(-Outcome_for_care_episode) %>% 
+  na.omit() %>% 
+  mutate(date = as.Date(date, format = c("%d/%m/%Y")),
+         person_id = as.character(person_id))
+
+# Load LSOA and attach
+LSOA_df <- read_xlsx("data/ace_data_LSOA.xlsx") %>% 
+  select(pkid, LSOA) %>% 
+  filter(!duplicated(pkid))
+
+results %<>% 
+  left_join(LSOA_df, c("person_id" = "pkid"))
 
 # Load spatial stats
 air_data <- read_csv("spatial/area_stats/bradford_air_LSOA.csv") %>%
@@ -103,7 +129,7 @@ results %<>%
 level_labels <- c("VeryLow", "Low", "Medium",
                    "High", "VeryHigh")
 results %<>% 
-  mutate(`NO2`_cut = cut(NO2, 5, labels = level_labels),
+  mutate(NO2_cut = cut(NO2, 5, labels = level_labels),
          NOx_cut = cut(NOx, 5, labels = level_labels),
          PM10_cut = cut(PM10, 5, labels = level_labels),
          PM25_cut = cut(PM25, 5, labels = level_labels))
@@ -335,3 +361,5 @@ summary(glm(hosp_reqd ~ high_IDCScore, data = results,
 # Index of Multiple Deprivation (IMD) Score - NS
 summary(glm(hosp_reqd ~ high_IMDScore, data = results,
             family = "binomial"))
+
+# Prepare output of useful variables

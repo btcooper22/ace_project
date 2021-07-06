@@ -44,7 +44,7 @@ prescrip <- c("fast_bronchodilator" = "albuterol", "fast_bronchodilator" = "salb
               "antihistamine" = "chlorphenamine", "antihistamine" = "hydroxyzine", 
               "antihistamine" = "fexofenadine", "antihistamine" = "loratadine",
               "antihistamine" = "promethazine", "prednisolone" = "prednisolone",
-              "other_steroid" = "Beclometasone", "other_steroid" =  "budesonide", 
+              "other_steroid" = "Beclometasone", "slow_bronchodilator" =  "budesonide", 
               "other_steroid" = "fluticasone" 
 )
 

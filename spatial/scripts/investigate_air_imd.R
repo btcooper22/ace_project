@@ -363,3 +363,9 @@ summary(glm(hosp_reqd ~ high_IMDScore, data = results,
             family = "binomial"))
 
 # Prepare output of useful variables
+results %>% 
+  select(person_id, date, LSOA, hosp_reqd,
+         high_NO2, high_NOx, high_PM10,
+         high_CYPScore, high_EduScore,
+         high_IDCScore) %>% 
+  write_csv("data/new_features/air_imd.csv")

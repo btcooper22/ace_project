@@ -787,4 +787,30 @@ with(results_prednisolone, table(hosp_reqd, prednisolone_courses_total > 3))
 summary(glm(hosp_reqd ~ (prednisolone_courses_total > 3),
             "binomial",results_prednisolone)) # Yes
 
-# Prepare output of useful variables
+# Prepare output of useful variables----
+results_eczema %>% 
+  select(person_id, date, hosp_reqd,
+         eczema_any, eczema_year) %>% 
+  cbind(results_asthma %>% 
+          select(asthma_any, asthma_year,
+                 asthma_6m, asthma_1m),
+        results_respiratory %>% 
+          select(respiratory_any, respiratory_year,
+                 respiratory_6m, respiratory_1m),
+        results_bronchitis %>% 
+          select(bronchitis_any, bronchitis_year,
+                 bronchitis_6m, bronchitis_1m),
+        results_pneumonia %>% 
+          select(pneumonia_any, pneumonia_year,
+                 pneumonia_6m, pneumonia_1m),
+        results_inhalers %>% 
+          mutate(many_inhalers = inhalers_total > 12) %>% 
+          select(many_inhalers),
+        results_prednisolone %>% 
+          mutate(many_prednisolone_courses = prednisolone_courses_total > 3,
+                 multiple_prednisolone_courses_year = prednisolone_courses_year > 1,
+                 multiple_prednisolone_courses_6m = prednisolone_courses_6m > 1) %>% 
+          select(many_prednisolone_courses, multiple_prednisolone_courses_year,
+                 multiple_prednisolone_courses_6m, prednisolone_year,
+                 prednisolone_6m, prednisolone_1m)) %>% 
+  write_csv("data/new_features/comorbidities_prescriptions.csv")

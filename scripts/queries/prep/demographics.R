@@ -48,3 +48,17 @@ loaded_q <- read_file("scripts/queries/cooper_demographics_query.sql")
 test_sql <- bq_dataset_query(bq_dataset("yhcr-prd-phm-bia-core", "CY_CDM_V1_50k_Random"),
                              query = loaded_q, billing = "yhcr-prd-phm-bia-core")
 
+
+# Load in query results
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "yhcr-prd-phm-bia-core",
+  dataset = "CY_MYSPACE_BC"
+)
+
+query_results <- tbl(con, "cooper_demographics_query_20210707") %>% 
+  collect()
+
+# Write results
+query_results %>% 
+  write_csv("data/cBradford/demographics.csv")

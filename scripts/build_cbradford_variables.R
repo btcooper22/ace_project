@@ -879,9 +879,7 @@ crosstab("ethnic_group", demographics)
 quick_glm("ethnic_group", demographics)
 
 # Visits----
-visits <- read_csv("data/cBradford/visits.csv") %>% 
-  left_join(results) %>% 
-  na.omit
+visits <- read_csv("data/cBradford/visits.csv")
 table(visits$concept_name)
 
 results_visit <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
@@ -893,39 +891,226 @@ results_visit <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     # Check visits database
     visit_subset <- visits %>% 
       filter(person_id == pid,
-             visit_end_date < date_instance)
+             visit_end_date < date_instance) %>% 
+      mutate(time_diff = date_instance - visit_end_date) 
     
-      # Any visits
-      visits_total <- nrow(visit_subset)
-      visit_any <- visits_total > 0
-      
-      # Extract visit types
-      table(visit_subset$concept_name)
-      
-      # Find time difference
-      recent_visit <- max(visit_subset$drug_exposure_start_date)
-      time_diff <- results %>% 
-        filter(person_id == pid &
-                 date == date_instance) %>% 
-        mutate(time_diff = date - recent_visit) %>% 
-        select(time_diff) %>% 
-        deframe()
-      
-      # visit presciption within year
-      visit_year <- time_diff < 365
-      visit_courses_year <- nrow(visit_subset %>% filter(time_diff < 365))
-      
-      # visit presciption within 6 months
-      visit_6m <- time_diff < 182
-      visit_courses_6m <- nrow(visit_subset %>% filter(time_diff < 182))
-      
-      # visit presciption within 1 month
-      visit_1m <- time_diff <= 31
-      visit_courses_1m <- nrow(visit_subset %>% filter(time_diff <= 31))
+    # Any visits
+    visits_total <- nrow(visit_subset)
+    ER_total <- nrow(visit_subset %>% 
+                       filter(concept_name == "Emergency Room Visit"))
+    GP_total <- nrow(visit_subset %>% 
+                       filter(concept_name == "Family Practice"))
+    IP_total <- nrow(visit_subset %>% 
+                       filter(concept_name == "Inpatient Visit"))
+    OP_total <- nrow(visit_subset %>% 
+                       filter(concept_name == "Outpatient Visit"))
+    
+    # Construct time frames
+    visits_3y_df <- visit_subset %>% 
+      filter(time_diff < 1095)
+    
+    visits_1y_df <- visit_subset %>% 
+      filter(time_diff < 365)
+    
+    visits_6m_df <- visit_subset %>% 
+      filter(time_diff < 182)
+    
+    visits_1m_df <- visit_subset %>% 
+      filter(time_diff <= 31)
+    
+    # Visits within 3 years
+    visits_3y <- nrow(visits_3y_df)
+    ER_3y <- nrow(visits_3y_df %>% 
+                       filter(concept_name == "Emergency Room Visit"))
+    GP_3y <- nrow(visits_3y_df %>% 
+                       filter(concept_name == "Family Practice"))
+    IP_3y <- nrow(visits_3y_df %>% 
+                       filter(concept_name == "Inpatient Visit"))
+    OP_3y <- nrow(visits_3y_df %>% 
+                       filter(concept_name == "Outpatient Visit"))
+    
+    # visits within year
+    visits_1y <- nrow(visits_1y_df)
+    ER_1y <- nrow(visits_1y_df %>% 
+                       filter(concept_name == "Emergency Room Visit"))
+    GP_1y <- nrow(visits_1y_df %>% 
+                       filter(concept_name == "Family Practice"))
+    IP_1y <- nrow(visits_1y_df %>% 
+                       filter(concept_name == "Inpatient Visit"))
+    OP_1y <- nrow(visits_1y_df %>% 
+                       filter(concept_name == "Outpatient Visit"))
+    
+    # visits within 6 months
+    visits_6m <- nrow(visits_6m_df)
+    ER_6m <- nrow(visits_6m_df %>% 
+                       filter(concept_name == "Emergency Room Visit"))
+    GP_6m <- nrow(visits_6m_df %>% 
+                       filter(concept_name == "Family Practice"))
+    IP_6m <- nrow(visits_6m_df %>% 
+                       filter(concept_name == "Inpatient Visit"))
+    OP_6m <- nrow(visits_6m_df %>% 
+                       filter(concept_name == "Outpatient Visit"))
+    
+    # visits within 1 month
+    visits_1m <- nrow(visits_1m_df)
+    ER_1m <- nrow(visits_1m_df %>% 
+                       filter(concept_name == "Emergency Room Visit"))
+    GP_1m <- nrow(visits_1m_df %>% 
+                       filter(concept_name == "Family Practice"))
+    IP_1m <- nrow(visits_1m_df %>% 
+                       filter(concept_name == "Inpatient Visit"))
+    OP_1m <- nrow(visits_1m_df %>% 
+                       filter(concept_name == "Outpatient Visit"))
     
     # Output
-    data.frame(results[i,], visit_any, visit_courses_total, 
-               visit_year, visit_courses_year,
-               visit_6m, visit_courses_6m,
-               visit_1m, visit_courses_1m)
+    data.frame(results[i,], visits_total, ER_total, GP_total, IP_total, OP_total,
+               visits_3y, ER_3y, GP_3y, IP_3y, OP_3y,
+               visits_1y, ER_1y, GP_1y, IP_1y, OP_1y,
+               visits_6m, ER_6m, GP_6m, IP_6m, OP_6m,
+               visits_1m, ER_1m, GP_1m, IP_1m, OP_1m)
   }
+
+# Test continuous variables flags
+quick_glm("ER_total", results_visit) # No
+quick_glm("ER_3y", results_visit) # No
+quick_glm("ER_1y", results_visit) # No
+quick_glm("ER_6m", results_visit) # No
+quick_glm("ER_1m", results_visit) # No
+quick_glm("IP_total", results_visit) # Yes
+quick_glm("IP_3y", results_visit) # Yes
+quick_glm("IP_1y", results_visit) # Yes
+quick_glm("IP_6m", results_visit) # Yes
+quick_glm("IP_1m", results_visit) # Yes
+quick_glm("OP_total", results_visit) # No
+quick_glm("OP_3y", results_visit) # No
+quick_glm("OP_1y", results_visit) # No
+quick_glm("OP_6m", results_visit) # No
+quick_glm("OP_1m", results_visit) # No
+quick_glm("GP_total", results_visit) # Yes
+quick_glm("GP_3y", results_visit) # Yes
+quick_glm("GP_1y", results_visit) # Yes
+quick_glm("GP_6m", results_visit) # Yes
+quick_glm("GP_1m", results_visit) # No
+
+# Build flags for ER IP and OP (plus GP in last month)
+results_visit %<>%
+  mutate(any_ER_total = ER_total > 0, any_ER_3y = ER_3y > 0,
+         any_ER_1y = ER_1y > 0, any_ER_6m = ER_6m > 0, any_ER_1m = ER_1m > 0,
+         any_IP_total = IP_total > 0, any_IP_3y = IP_3y > 0,
+         any_IP_1y = IP_1y > 0, any_IP_6m = IP_6m > 0, any_IP_1m = IP_1m > 0,
+         any_OP_total = OP_total > 0, any_OP_3y = OP_3y > 0,
+         any_OP_1y = OP_1y > 0, any_OP_6m = OP_6m > 0, any_OP_1m = OP_1m > 0,
+         any_GP_1m = GP_1m > 0)
+
+# Test binary flags
+quick_glm("any_ER_total", results_visit) # No
+quick_glm("any_ER_3y", results_visit) # No
+quick_glm("any_ER_1y", results_visit) # No
+quick_glm("any_ER_6m", results_visit) # No
+quick_glm("any_ER_1m", results_visit) # No
+quick_glm("any_IP_total", results_visit) # No
+quick_glm("any_IP_3y", results_visit) # No
+quick_glm("any_IP_1y", results_visit) # No
+quick_glm("any_IP_6m", results_visit) # No
+quick_glm("any_IP_1m", results_visit) # No
+quick_glm("any_OP_total", results_visit) # No
+quick_glm("any_OP_3y", results_visit) # No
+quick_glm("any_OP_1y", results_visit) # No
+quick_glm("any_OP_6m", results_visit) # No
+quick_glm("any_OP_1m", results_visit) # No
+quick_glm("any_GP_1m", results_visit) # No
+
+# Profile remainder for split points
+variables_of_interest <- names(results_visit)[4:28]
+
+division_results <- foreach(i = 1:length(variables_of_interest),
+                            .combine = "rbind") %do%
+  {
+    # Extract to data frame
+    print(variables_of_interest[i])
+    var_df <- results_visit %>% 
+      select(any_of(c("hosp_reqd", variables_of_interest[i]))) %>% 
+      rename("value" = variables_of_interest[i])
+    
+    # Find limits and build sequence
+    limits <- quantile(var_df$value, c(0.01, 0.99))
+    divisions_seq <- unique(round(seq(limits[1], limits[2], length.out = 50)))
+    
+    # Inner loop for divisions
+    profile <- foreach(d = 1:length(divisions_seq),
+                       .combine = "rbind") %do%
+      {
+        # Binarise variable
+        var_df$value_bin <- var_df$value > divisions_seq[d]
+        
+        # Build model
+        mod <- glm(hosp_reqd ~ value_bin, data = var_df,
+                   family = "binomial")
+        
+        # Extract confidence interval
+        conf_inteval <- suppressMessages(confint(mod)) 
+        
+        # Output
+        data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+                   L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+      }
+    
+    # Add variable name
+    profile$varname <- variables_of_interest[i]
+    
+    # Calculate CI width 
+    profile$CI_width <- abs(profile$U95 - profile$L95)
+    
+    # Calculate periods where effect direction is consistant
+    profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+    
+    # Check for any periods that match the above
+    if(any(profile$CI_dir_const, na.rm = TRUE))
+    {
+      output <- profile %>% 
+        filter(CI_dir_const == TRUE) %>% 
+        slice_min(CI_width)
+    }else
+    {
+      output <- profile %>% 
+        slice_min(CI_width)
+    }
+    
+    # Prepare output
+    output %>% 
+      slice_head(n = 1)
+  } %>% 
+  filter(CI_dir_const == TRUE)
+
+# Model promising results
+summary(glm(hosp_reqd ~ (ER_6m > 2), binomial, results_visit))
+summary(glm(hosp_reqd ~ (ER_1y > 4), binomial, results_visit))
+
+summary(glm(hosp_reqd ~ (GP_6m > 4), binomial, results_visit))
+summary(glm(hosp_reqd ~ (GP_1y > 6), binomial, results_visit))
+summary(glm(hosp_reqd ~ (GP_3y > 58), binomial, results_visit)) # Bit silly
+
+summary(glm(hosp_reqd ~ (IP_6m > 1), binomial, results_visit))
+summary(glm(hosp_reqd ~ (IP_1y > 2), binomial, results_visit))
+summary(glm(hosp_reqd ~ (IP_3y > 4), binomial, results_visit))
+summary(glm(hosp_reqd ~ (IP_total > 9), binomial, results_visit))
+
+summary(glm(hosp_reqd ~ (OP_3y > 2), binomial, results_visit))
+summary(glm(hosp_reqd ~ (OP_total > 2), binomial, results_visit))
+
+summary(glm(hosp_reqd ~ (visits_1m > 6), binomial, results_visit))
+summary(glm(hosp_reqd ~ (visits_6m > 4), binomial, results_visit))
+summary(glm(hosp_reqd ~ (visits_1y > 8), binomial, results_visit))
+summary(glm(hosp_reqd ~ (visits_3y > 63), binomial, results_visit)) # Also a bit silly
+
+# Prepare and write
+results_visit %>% 
+  mutate(high_vER_6m = ER_6m > 2, high_vER_1y = ER_1y > 4,
+         high_vGP_6m = GP_6m > 4, high_vGP_1y = GP_1y > 6,
+         high_vIP_6m = IP_6m > 1, high_vIP_1y = IP_1y > 2,
+         high_vIP_3y = IP_3y > 4, high_vIP_total = IP_total > 9,
+         high_vOP_3y = OP_3y > 2, high_vOP_total = OP_total > 2,
+         high_vXX_1m = visits_1m > 6, high_vXX_6m = visits_6m > 4,
+         high_vXX_1y = visits_1y > 8) %>% 
+  select(person_id, date, hosp_reqd, contains("high_")) %>% 
+  write_csv("data/new_features/visits.csv")

@@ -814,3 +814,97 @@ results_eczema %>%
                  multiple_prednisolone_courses_6m, prednisolone_year,
                  prednisolone_6m, prednisolone_1m)) %>% 
   write_csv("data/new_features/comorbidities_prescriptions.csv")
+
+# Demographics - Gender----
+demographics <- read_csv("data/cBradford/demographics.csv") %>% 
+  left_join(results) %>% 
+  na.omit
+table(demographics$gender_source_value)
+
+crosstab("gender_source_value", demographics)
+summary(glm(hosp_reqd ~ (gender_source_value == "M"),
+            binomial, demographics))
+
+# Ethnicity----
+asian_ethnicity <-  c("indian", "mixed Asian", "pakistani", "white asain", "british asian",
+         "asian", "sri Lankan", "other asian background", "bangladeshi")
+european_ethnicity <-  c("slovak", "british", "other white background", "czech republic",
+            "white europeon", "white british", "commonwealth russian",
+            "other european", "mixed white")
+
+demographics %<>% 
+  mutate(ethnic_group = case_when(
+    ethnicity_concept_id %in% c(46286810, 0) ~ "European",
+    ethnicity_concept_id %in% c(46285832) ~ "Pakistani",
+    ethnicity_concept_id %in% c(46285831, 46285833, 46285835) ~ "Other Asian",
+    ethnicity_concept_id %in% c(46285827, 46285828, 46285829,
+                           46285830, 46285836, 46285837,
+                           46285839, 46286811) ~ "Other"
+  ))
+
+crosstab("ethnic_group", demographics)
+quick_glm("ethnic_group", demographics)
+
+# Visits----
+visits <- read_csv("data/cBradford/visits.csv") %>% 
+  left_join(results) %>% 
+  na.omit
+table(visits$concept_name)
+
+results_prednisolone <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in prednisolone database
+    visit_subset <- visits %>% 
+      filter(person_id == pid)
+    
+    if(nrow(visit_subset) == 0)
+    {
+      visit_any <- FALSE
+      visit_courses_total <- 0
+      visit_year <- FALSE
+      visit_courses_year <- 0
+      visit_6m <- FALSE
+      visit_courses_6m <- 0
+      visit_1m <- FALSE
+      visit_courses_1m <- 0
+    }else
+    {
+      # Any visits
+      visit_any <- TRUE
+      visits_total <- nrow(visit_subset)
+      
+      # Extract visit types
+      table(visit_subset$concept_name)
+      
+      # Find time difference
+      recent_visit <- max(visit_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_visit) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # visit presciption within year
+      visit_year <- time_diff < 365
+      visit_courses_year <- nrow(visit_subset %>% filter(time_diff < 365))
+      
+      # visit presciption within 6 months
+      visit_6m <- time_diff < 182
+      visit_courses_6m <- nrow(visit_subset %>% filter(time_diff < 182))
+      
+      # visit presciption within 1 month
+      visit_1m <- time_diff <= 31
+      visit_courses_1m <- nrow(visit_subset %>% filter(time_diff <= 31))
+    }
+    
+    # Output
+    data.frame(results[i,], visit_any, visit_courses_total, 
+               visit_year, visit_courses_year,
+               visit_6m, visit_courses_6m,
+               visit_1m, visit_courses_1m)
+  }

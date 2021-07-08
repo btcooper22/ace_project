@@ -79,7 +79,8 @@ results_gerd <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in GERD database
     gerd_subset <- patients_gerd %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(gerd_subset) == 0)
     {
@@ -131,7 +132,8 @@ results_rhinitis <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in rhinitis database
     rhinitis_subset <- patients_rhinitis %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(rhinitis_subset) == 0)
     {
@@ -191,7 +193,8 @@ results_eczema <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in eczema database
     eczema_subset <- patients_eczema %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(eczema_subset) == 0)
     {
@@ -234,8 +237,8 @@ crosstab("eczema_6m", results_eczema)
 crosstab("eczema_1m", results_eczema)
 
 quick_glm("eczema_any", results_eczema) # Yes 
-quick_glm("eczema_year", results_eczema) # Maybe
-quick_glm("eczema_6m", results_eczema) # No
+quick_glm("eczema_year", results_eczema) # Yes
+quick_glm("eczema_6m", results_eczema) # Maybe
 quick_glm("eczema_1m", results_eczema) # No
 
 # Asthma----
@@ -251,7 +254,8 @@ results_asthma <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in asthma database
     asthma_subset <- patients_asthma %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(asthma_subset) == 0)
     {
@@ -293,10 +297,10 @@ crosstab("asthma_year", results_asthma)
 crosstab("asthma_6m", results_asthma)
 crosstab("asthma_1m", results_asthma)
 
-quick_glm("asthma_any", results_asthma) # Yes 
-quick_glm("asthma_year", results_asthma) # Yes
-quick_glm("asthma_6m", results_asthma) # Yes
-quick_glm("asthma_1m", results_asthma) # Yes
+quick_glm("asthma_any", results_asthma) # No 
+quick_glm("asthma_year", results_asthma) # No
+quick_glm("asthma_6m", results_asthma) # No
+quick_glm("asthma_1m", results_asthma) # No
 
 # Other respiratory infections----
 # Pooled
@@ -312,7 +316,8 @@ results_respiratory <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in respiratory database
     respiratory_subset <- patients_respiratory %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(respiratory_subset) == 0)
     {
@@ -355,9 +360,9 @@ crosstab("respiratory_6m", results_respiratory)
 crosstab("respiratory_1m", results_respiratory)
 
 quick_glm("respiratory_any", results_respiratory) # Yes 
-quick_glm("respiratory_year", results_respiratory) # Yes
-quick_glm("respiratory_6m", results_respiratory) # Yes
-quick_glm("respiratory_1m", results_respiratory) # Yes
+quick_glm("respiratory_year", results_respiratory) # No
+quick_glm("respiratory_6m", results_respiratory) # No
+quick_glm("respiratory_1m", results_respiratory) # No
 
 # Bronchitis----
 patients_bronchitis <- comorbidities %>% 
@@ -372,7 +377,8 @@ results_bronchitis <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in bronchitis database
     bronchitis_subset <- patients_bronchitis %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(bronchitis_subset) == 0)
     {
@@ -415,9 +421,9 @@ crosstab("bronchitis_6m", results_bronchitis)
 crosstab("bronchitis_1m", results_bronchitis)
 
 quick_glm("bronchitis_any", results_bronchitis) # Yes 
-quick_glm("bronchitis_year", results_bronchitis) # Yes
-quick_glm("bronchitis_6m", results_bronchitis) # Yes
-quick_glm("bronchitis_1m", results_bronchitis) # Yes
+quick_glm("bronchitis_year", results_bronchitis) # No
+quick_glm("bronchitis_6m", results_bronchitis) # No
+quick_glm("bronchitis_1m", results_bronchitis) # No
 
 # Pneumonia----
 patients_pneumonia <- comorbidities %>% 
@@ -432,7 +438,8 @@ results_pneumonia <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in pneumonia database
     pneumonia_subset <- patients_pneumonia %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               condition_start_date < date_instance)
     
     if(nrow(pneumonia_subset) == 0)
     {
@@ -476,8 +483,8 @@ crosstab("pneumonia_1m", results_pneumonia)
 
 quick_glm("pneumonia_any", results_pneumonia) # Yes 
 quick_glm("pneumonia_year", results_pneumonia) # Yes
-quick_glm("pneumonia_6m", results_pneumonia) # Yes
-quick_glm("pneumonia_1m", results_pneumonia) # Yes
+quick_glm("pneumonia_6m", results_pneumonia) # No
+quick_glm("pneumonia_1m", results_pneumonia) # No
 
 # Prescriptions: Load and examine----
 prescriptions <- read_csv("data/cBradford/prescriptions.csv")
@@ -513,7 +520,8 @@ results_inhalers <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in inhalers database
     inhalers_subset <- patients_inhalers %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
     
     # Extract inhaler types
     relievers <-  inhalers_subset %>% 
@@ -589,6 +597,25 @@ profile <- foreach(d = 1:length(divisions_seq),
     data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
                L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
   }
+
+# Calculate CI width 
+profile$CI_width <- abs(profile$U95 - profile$L95)
+
+# Calculate periods where effect direction is consistant
+profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+
+# Check for any periods that match the above
+if(any(profile$CI_dir_const))
+{
+  output <- profile %>% 
+    filter(CI_dir_const == TRUE) %>% 
+    slice_min(CI_width)
+}else
+{
+  output <- profile %>% 
+    slice_min(CI_width)
+}
+
 summary(glm(hosp_reqd ~ (inhalers_total > 12), "binomial", results_inhalers)) # Sure, why not
 
 # Antihistamines----
@@ -603,7 +630,8 @@ results_antihistamine <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in antihistamine database
     antihistamine_subset <- patients_antihistamine %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
     
     if(nrow(antihistamine_subset) == 0)
     {
@@ -662,7 +690,8 @@ results_prednisolone <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
     
     # Check in prednisolone database
     prednisolone_subset <- patients_prednisolone %>% 
-      filter(person_id == pid)
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
     
     if(nrow(prednisolone_subset) == 0)
     {
@@ -714,10 +743,10 @@ crosstab("prednisolone_year", results_prednisolone)
 crosstab("prednisolone_6m", results_prednisolone)
 crosstab("prednisolone_1m", results_prednisolone)
 
-quick_glm("prednisolone_any", results_prednisolone) # Kind of 
-quick_glm("prednisolone_year", results_prednisolone) # Yes
-quick_glm("prednisolone_6m", results_prednisolone) # Yes
-quick_glm("prednisolone_1m", results_prednisolone) # Yes
+quick_glm("prednisolone_any", results_prednisolone) # No
+quick_glm("prednisolone_year", results_prednisolone) # Maybe
+quick_glm("prednisolone_6m", results_prednisolone) # Maybe
+quick_glm("prednisolone_1m", results_prednisolone) # No
 
 # List variables worth investigation
 variables_of_interest <- c("prednisolone_courses_total",
@@ -783,36 +812,40 @@ division_results <- foreach(i = 1:length(variables_of_interest),
       slice_head(n = 1)
   }
 
-with(results_prednisolone, table(hosp_reqd, prednisolone_courses_total > 3))
-summary(glm(hosp_reqd ~ (prednisolone_courses_total > 3),
+with(results_prednisolone, table(hosp_reqd, prednisolone_courses_total > 4))
+summary(glm(hosp_reqd ~ (prednisolone_courses_total > 4),
+            "binomial",results_prednisolone)) # Yes
+
+summary(glm(hosp_reqd ~ (prednisolone_courses_year > 3),
+            "binomial",results_prednisolone)) # Yes
+
+summary(glm(hosp_reqd ~ (prednisolone_courses_6m  > 3),
+            "binomial",results_prednisolone)) # Yes
+
+summary(glm(hosp_reqd ~ (prednisolone_courses_1m  > 4),
             "binomial",results_prednisolone)) # Yes
 
 # Prepare output of useful variables----
 results_eczema %>% 
   select(person_id, date, hosp_reqd,
-         eczema_any, eczema_year) %>% 
-  cbind(results_asthma %>% 
-          select(asthma_any, asthma_year,
-                 asthma_6m, asthma_1m),
-        results_respiratory %>% 
-          select(respiratory_any, respiratory_year,
-                 respiratory_6m, respiratory_1m),
+         eczema_any, eczema_year, eczema_6m) %>% 
+  cbind(        results_respiratory %>% 
+          select(respiratory_any),
         results_bronchitis %>% 
-          select(bronchitis_any, bronchitis_year,
-                 bronchitis_6m, bronchitis_1m),
+          select(bronchitis_any),
         results_pneumonia %>% 
-          select(pneumonia_any, pneumonia_year,
-                 pneumonia_6m, pneumonia_1m),
+          select(pneumonia_any, pneumonia_year),
         results_inhalers %>% 
           mutate(many_inhalers = inhalers_total > 12) %>% 
           select(many_inhalers),
         results_prednisolone %>% 
-          mutate(many_prednisolone_courses = prednisolone_courses_total > 3,
-                 multiple_prednisolone_courses_year = prednisolone_courses_year > 1,
-                 multiple_prednisolone_courses_6m = prednisolone_courses_6m > 1) %>% 
-          select(many_prednisolone_courses, multiple_prednisolone_courses_year,
-                 multiple_prednisolone_courses_6m, prednisolone_year,
-                 prednisolone_6m, prednisolone_1m)) %>% 
+          mutate(many_prednisolone_courses = prednisolone_courses_total > 4,
+                 many_prednisolone_courses_year = prednisolone_courses_year > 3,
+                 many_prednisolone_courses_6m = prednisolone_courses_6m > 3,
+                 many_prednisolone_courses_1m = prednisolone_courses_1m > 4) %>% 
+          select(many_prednisolone_courses, many_prednisolone_courses_year,
+                 many_prednisolone_courses_6m, prednisolone_1m,
+                 prednisolone_year, prednisolone_6m,)) %>% 
   write_csv("data/new_features/comorbidities_prescriptions.csv")
 
 # Demographics - Gender----
@@ -851,31 +884,20 @@ visits <- read_csv("data/cBradford/visits.csv") %>%
   na.omit
 table(visits$concept_name)
 
-results_prednisolone <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+results_visit <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
   {
     # Isolate person
     pid <- results$person_id[i]
     date_instance <- results$date[i]
     
-    # Check in prednisolone database
+    # Check visits database
     visit_subset <- visits %>% 
-      filter(person_id == pid)
+      filter(person_id == pid,
+             visit_end_date < date_instance)
     
-    if(nrow(visit_subset) == 0)
-    {
-      visit_any <- FALSE
-      visit_courses_total <- 0
-      visit_year <- FALSE
-      visit_courses_year <- 0
-      visit_6m <- FALSE
-      visit_courses_6m <- 0
-      visit_1m <- FALSE
-      visit_courses_1m <- 0
-    }else
-    {
       # Any visits
-      visit_any <- TRUE
       visits_total <- nrow(visit_subset)
+      visit_any <- visits_total > 0
       
       # Extract visit types
       table(visit_subset$concept_name)
@@ -900,7 +922,6 @@ results_prednisolone <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
       # visit presciption within 1 month
       visit_1m <- time_diff <= 31
       visit_courses_1m <- nrow(visit_subset %>% filter(time_diff <= 31))
-    }
     
     # Output
     data.frame(results[i,], visit_any, visit_courses_total, 

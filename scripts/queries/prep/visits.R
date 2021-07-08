@@ -66,4 +66,4 @@ query_results <- tbl(con, "cooper_VISIT_query_20210707") %>%
 
 # Write results
 query_results %>% 
-  write_csv("data/cBradford/demographics.csv")
+  write_csv("data/cBradford/visits.csv")

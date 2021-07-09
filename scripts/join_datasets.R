@@ -7,6 +7,7 @@ require(magrittr)
 require(lubridate)
 require(readxl)
 require(stringr)
+bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
 con <- dbConnect(
   bigrquery::bigquery(),
@@ -30,7 +31,10 @@ ace_df
 # ace_df %>% 
 #   filter(substr(Postcode, 1, 2) == "BD") %>% 
 #   write_csv("data/ace_data_080621.csv")
-ace_df$season <- c("Spring", "Summer", "Autumn", "Winter")[quarter(ace_df$Date_of_referral_accepted)]
+ace_df$`Date of referral` <- case_when(month(ace_df$Date_of_referral_accepted) %in% c(12, 1, 2) ~ "Winter",
+                           month(ace_df$Date_of_referral_accepted) %in% c(3, 4, 5) ~ "Spring",
+                           month(ace_df$Date_of_referral_accepted) %in% c(6, 7, 8) ~ "Summer",
+                           month(ace_df$Date_of_referral_accepted) %in% c(9, 10, 11) ~ "Autumn")
 
 # Clear of NAs in identifying info
 ace_df %<>% 
@@ -193,7 +197,7 @@ setdiff(unique(ace_spreadsheet$`Referral from`), unique(ace_df$`Referral from`))
 # Check unique code numbers
 identifier <- paste(ace_df$Age, ace_df$Address, ace_df$GPSurgery,
                     ace_df$`Hospital Required?`, ace_df$`No of days bed saved`,
-                    ace_df$Ethnicity, ace_df$`Referral from`, sep = "_")
+                    ace_df$Ethnicity, ace_df$`Referral from`, ace_df$`Date of referral`, sep = "_")
 length(unique(identifier))
 non_unique <- identifier[duplicated(identifier)]
 
@@ -203,7 +207,8 @@ ace_df <- ace_df[which(identifier %in% non_unique == FALSE),]
 # Repeat for spreadsheet
 identifier_s <- paste(ace_spreadsheet$Age, ace_spreadsheet$Address, ace_spreadsheet$GPSurgery,
                     ace_spreadsheet$`Hospital Required?`, ace_spreadsheet$`No of days bed saved`,
-                    ace_spreadsheet$Ethnicity, ace_spreadsheet$`Referral from`, sep = "_")
+                    ace_spreadsheet$Ethnicity, ace_spreadsheet$`Referral from`, 
+                    ace_spreadsheet$`Date of referral`, sep = "_")
 length(unique(identifier))
 non_unique_s <- identifier_s[duplicated(identifier_s)]
 ace_spreadsheet <- ace_spreadsheet[which(identifier %in% non_unique_s == FALSE),]
@@ -212,5 +217,5 @@ ace_spreadsheet <- ace_spreadsheet[which(identifier %in% non_unique_s == FALSE),
 combined_dataset <- ace_spreadsheet %>% 
   inner_join(ace_df, by = c("Age", "Address", "GPSurgery",
                             "Hospital Required?", "No of days bed saved",
-                            "Ethnicity", "Referral from"))
+                            "Ethnicity", "Referral from", "Date of referral"))
 write_csv(combined_dataset, "data/ace_data_linked.csv")

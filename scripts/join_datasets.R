@@ -36,16 +36,25 @@ ace_df$`Date of referral` <- case_when(month(ace_df$Date_of_referral_accepted) %
                            month(ace_df$Date_of_referral_accepted) %in% c(6, 7, 8) ~ "Summer",
                            month(ace_df$Date_of_referral_accepted) %in% c(9, 10, 11) ~ "Autumn")
 
+# Fix time
+ace_df$`Time of referral` <-  case_when(substr(ace_df$Time_of_referral_accepted, 1, 5) == "12:00" ~ "Morning",
+          substr(ace_df$Time_of_referral_accepted, 1, 5) == "17:00" ~ "Afternoon",
+          substr(ace_df$Time_of_referral_accepted, 1, 2) <= "11" ~ "Morning",
+          substr(ace_df$Time_of_referral_accepted, 1, 2) <= "16" ~ "Afternoon",
+          is.na(ace_df$Time_of_referral_accepted) ~ "NA",
+          is.character(substr(ace_df$Time_of_referral_accepted, 1, 2)) ~ "Evening")
+
 # Clear of NAs in identifying info
 ace_df %<>% 
   filter(!is.na(Age) & !is.na(Postcode) &
            !is.na(GPSurgery) & !is.na(Outcome_for_care_episode) &
            !is.na(Bed_Days_saved) & !is.na(Ethnicity) & !is.na(Referral_Source) &
-           !is.na(season))
+           !is.na(`Date of referral`) & !is.na(`Time of referral`))
 
 length(unique(paste(ace_df$Age, ace_df$Postcode, ace_df$GPSurgery,
                     ace_df$Outcome_for_care_episode, ace_df$Bed_Days_saved,
-                    ace_df$Ethnicity, ace_df$Referral_Source, ace_df$season)))
+                    ace_df$Ethnicity, ace_df$Referral_Source, ace_df$`Date of referral`,
+                    ace_df$`Time of referral`)))
 
 # Load original datasets----
 
@@ -197,7 +206,8 @@ setdiff(unique(ace_spreadsheet$`Referral from`), unique(ace_df$`Referral from`))
 # Check unique code numbers
 identifier <- paste(ace_df$Age, ace_df$Address, ace_df$GPSurgery,
                     ace_df$`Hospital Required?`, ace_df$`No of days bed saved`,
-                    ace_df$Ethnicity, ace_df$`Referral from`, ace_df$`Date of referral`, sep = "_")
+                    ace_df$Ethnicity, ace_df$`Referral from`, ace_df$`Date of referral`,
+                    ace_df$`Time of referral`, sep = "_")
 length(unique(identifier))
 non_unique <- identifier[duplicated(identifier)]
 
@@ -208,7 +218,8 @@ ace_df <- ace_df[which(identifier %in% non_unique == FALSE),]
 identifier_s <- paste(ace_spreadsheet$Age, ace_spreadsheet$Address, ace_spreadsheet$GPSurgery,
                     ace_spreadsheet$`Hospital Required?`, ace_spreadsheet$`No of days bed saved`,
                     ace_spreadsheet$Ethnicity, ace_spreadsheet$`Referral from`, 
-                    ace_spreadsheet$`Date of referral`, sep = "_")
+                    ace_spreadsheet$`Date of referral`,
+                    ace_spreadsheet$`Time of referral`, sep = "_")
 length(unique(identifier))
 non_unique_s <- identifier_s[duplicated(identifier_s)]
 ace_spreadsheet <- ace_spreadsheet[which(identifier %in% non_unique_s == FALSE),]
@@ -217,5 +228,6 @@ ace_spreadsheet <- ace_spreadsheet[which(identifier %in% non_unique_s == FALSE),
 combined_dataset <- ace_spreadsheet %>% 
   inner_join(ace_df, by = c("Age", "Address", "GPSurgery",
                             "Hospital Required?", "No of days bed saved",
-                            "Ethnicity", "Referral from", "Date of referral"))
+                            "Ethnicity", "Referral from", "Date of referral",
+                            "Time of referral"))
 write_csv(combined_dataset, "data/ace_data_linked.csv")

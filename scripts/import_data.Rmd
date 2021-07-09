@@ -10,6 +10,7 @@ require(reticulate)
 require(readr)
 require(dplyr)
 require(magrittr)
+require(tibble)
 ```
 
 ```{python Load modules}
@@ -300,36 +301,78 @@ def return_train_test(dataf, run_pipeline=True):
     return X_train, y_train, X_test, y_test
 ```
 
+```{r Load data}
+# Load original for column reference
+ace_data_original <- read_csv("data/ace_data_extra.csv")
 
-```{python Read old data}
-ace_data_old_unprocessed = pd.read_csv("data/ace_data_extra.csv")
+# Load linked, select and rename columns
+ace_data_unprocessed <- read_csv("data/ace_data_linked.csv") %>% 
+        rowid_to_column() %>%
+    select(hospital_reqd = `Hospital Required?`,
+           referral_from = `Referral from`,
+           referral_profession = `Referral Professional`,
+           age = Age,
+           address = Address,
+           ethnicity = Ethnicity,
+           gender = Gender,
+           allergies = Allergy,
+           referral_date = `Date of referral`,
+           referral_time = `Time of referral`,
+           illness_severity = `Severity of Illness`,
+           activity_level = `Activity Level of Child`,
+           gut_feeling = `\"Gut Feeling\" of Referrer`,
+           ox_sat = `Oxygen saturations`,
+           resp_rate = `Respiratory rate`,
+           heart_rate = `Heart rate`,
+           temp = Temperature,
+           sepsis = `Sepsis red flags (refer to sepsis tool)`,
+           safeguarding = `Safeguarding issues`,
+           medical_history = `Background (Medical Histroy)`,
+           examination_summary = `Referral's examination summary`,
+           recommendation = Recommendation,
+           rowid) %>% 
+    mutate(rowid = as.character(rowid))
 
-ace_data_old = (ace_data_old_unprocessed
-            .pipe(run_default_pipeline))
-            
-ace_data_old.to_csv("data/ace_data_old.csv")
+# Clean columns
+ace_data_unprocessed$heart_rate[ace_data_unprocessed$heart_rate == "125-130"] <- 127
+ace_data_unprocessed$temp[ace_data_unprocessed$temp == "Aprexial"] <- "None"
 ```
 
-```{python Read new data}
-ace_data_new_unprocessed = pd.read_csv("data/brand_new_data.csv")
 
-ace_data_new = (ace_data_new_unprocessed
+```{python Run Sam's preprocessing pipeline}
+ace_data_unprocessed = r.ace_data_unprocessed
+
+ace_data = (ace_data_unprocessed
             .pipe(run_default_pipeline))
             
-ace_data_new.to_csv("data/ace_data_new.csv")
-quit
+#ace_data.to_csv("data/ace_data_linked_cleaned.csv")
 ```
 
 ```{r Load and check}
 # Load data
-old_df <- read_csv("data/ace_data_old.csv")
-new_df <- read_csv("data/ace_data_new.csv")
+ace_data_processed <- py$ace_data %>% 
+    relocate(rowid)
 
 # Combine
-results <- old_df %>% 
-    mutate(dataset = "old") %>% 
-    rbind(new_df %>% 
-              mutate(dataset = "new"))
+results <- ace_data_processed %>% 
+    left_join(read_csv("data/ace_data_linked.csv") %>% 
+                 rowid_to_column() %>% 
+                 select(rowid, person_id,
+                        date_referred = Date_of_referral_accepted) %>% 
+                  mutate(rowid = as.character(rowid),
+                         date_referred = as.Date(date_referred, format = "%d/%m/%Y"))) %>% 
+    relocate(rowid, person_id, date_referred)
+
+# Add new features
+results %<>% 
+    left_join(read_csv("data/new_features/air_imd.csv") %>% select(-hosp_reqd),
+              by = c("person_id", "date_referred" = "date")) %>% 
+    left_join(read_csv("data/new_features/comorbidities_prescriptions.csv") %>% select(-hosp_reqd),
+              by = c("person_id", "date_referred" = "date")) %>% 
+    left_join(read_csv("data/new_features/distance.csv") %>% select(-hosp_reqd),
+              by = c("person_id", "date_referred" = "date")) %>% 
+    left_join(read_csv("data/new_features/visits.csv") %>% select(-hosp_reqd),
+              by = c("person_id", "date_referred" = "date"))
 
 # Manual changes
 results$referral_profession[results$referral_profession == "registar"] <- "registrar"
@@ -340,44 +383,12 @@ results$temp %<>% round(1)
 results$sepsis[results$sepsis != "none noted"] <- "low level"
 
 # Swap HR and RR for that patient
-results$resp_rate[results$resp_rate == 115] <- 22
-results$heart_rate[results$heart_rate == 22] <- 115
+# results$resp_rate[results$resp_rate == 115] <- 22
+# results$heart_rate[results$heart_rate == 22] <- 115
 
-# Check variables one-by-one
-with(results, table(dataset, hospital_reqd))
-with(results, table(dataset, referral_from))
-with(results, table(dataset, referral_profession))
-with(results, table(dataset, age))
-with(results, table(dataset, address))
-with(results, table(dataset, gender))
-with(results, table(dataset, referral_date))
-with(results, table(dataset, referral_time))
-with(results, table(dataset, illness_severity))
-with(results, table(dataset, activity_level))
-with(results, table(dataset, gut_feeling))
-with(results, table(dataset, ox_sat))
-with(results, table(dataset, resp_rate))
-with(results, table(dataset, heart_rate))
-with(results, table(dataset, temp))
-with(results, table(dataset, sepsis))
-with(results, table(dataset, safeguarding))
-with(results, table(dataset, food_allergy))
-with(results, table(dataset, drug_allergy))
-with(results, table(dataset, other_allergy))
-with(results, table(dataset, group_ethnicity))
-with(results, table(dataset, ox_sat_low))
-with(results, table(dataset, age_range))
-with(results, table(dataset, ace_resp_rate_cat))
-with(results, table(dataset, ace_heart_rate_cat))
-with(results, table(dataset, apls_resp_rate_cat))
-with(results, table(dataset, apls_heart_rate_cat))
-with(results, table(dataset, meets_ace_criteria))
-with(results, table(dataset, mentions_asthma))
-with(results, table(dataset, mentions_salbutamol))
-
-# Write
+# Write to final
 results %>% 
-    write_csv("data/ace_data_april21.csv")
-```
+    write_csv("data/ace_data_cooper_final.csv")
 
+```
 

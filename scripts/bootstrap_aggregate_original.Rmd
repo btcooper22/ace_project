@@ -90,11 +90,10 @@ registerDoParallel(cl)
 
 ```{r Determine retained variables using bootstrapping}
 # Set parameters
-nboot <- 10000
 lambda_seq <-  exp(seq(-1, -6, length = 100))
 
 # Build models on bootstrapped dataset
-boot_results <- foreach(i = 1:nboot, .combine = "rbind",
+boot_results <- foreach(i = 1:10000, .combine = "rbind",
                               .packages = c("dplyr", "caret","foreach",
                                             "purrr", "glmnet", "tibble"),
                               .inorder = FALSE) %dopar%
@@ -157,6 +156,10 @@ boot_results %>%
 
 
 ```{r Bagging function}
+# Test parameters
+# df <- results
+# nboot <- 100
+
 bootstrap_aggregate <- function(df, nboot)
 {
   # Fit model on bootstrapped dataset
@@ -166,6 +169,7 @@ bootstrap_aggregate <- function(df, nboot)
                                .inorder = FALSE) %dopar%
   {
     set.seed(j)
+    
     # Subsample dataset with replacement
     boot_df <- df %>% 
       group_by(hospital_reqd) %>% 
@@ -177,7 +181,7 @@ bootstrap_aggregate <- function(df, nboot)
     model_instance <- glm(hospital_reqd ~ ox_sat + mentions_asthma +
                             referral_from_gp + mentions_salbutamol +
                             illness_severity + abnormal_resp_rate +
-                            NO2 + DepChi + IMDScore,
+                            heart_rate + temp,
                           data = boot_df, family = "binomial")
     
     # Post-predict to determine threshold
@@ -223,18 +227,17 @@ predict_from_bagging <- function(newdata, coef_df)
       names(coefs) <- names(coef_df)
       
       # Build equation
-      pred_y <- coefs[1] + (newdata$abnormal_resp_rate * coefs[2]) +
-        ((newdata$illness_severity == "moderate") * coefs[3]) +
-        ((newdata$mentions_asthma == "y") * coefs[4]) +
-        ((newdata$mentions_salbutamol == "y") * coefs[5]) +
-        (newdata$referral_from_gp * coefs[7]) +
-        (newdata$ox_sat * coefs[6]) +
-        (newdata$NO2 * coefs[8]) +
-        (newdata$DepChi * coefs[9]) +
-        (newdata$IMDScore * coefs[10])
+      pred_y <- coefs[1] + (newdata$ox_sat * coefs[2]) +
+        (newdata$mentions_asthma * coefs[3]) +
+        (newdata$referral_from_gp * coefs[4]) +
+        (newdata$mentions_salbutamol * coefs[5]) +
+        ((newdata$illness_severity == "moderate") * coefs[6]) +
+        (newdata$abnormal_resp_rate * coefs[7]) +
+        (newdata$heart_rate * coefs[8]) +
+        (newdata$temp * coefs[9])
       
       # Binarise predictions
-      as.numeric(pred_y > coefs[11])
+      as.numeric(pred_y > coefs[10])
     }
   return(predicted_classes)
 }
@@ -309,15 +312,6 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 # Set up parameters 
 nboot <- 100
 ncycles <- 100
-
-# Set up parallel
-ptm <- proc.time()
-psnice(value = 19)
-n_cores <- 15
-cl <- makeCluster(ifelse(detectCores() <= n_cores,
-                          detectCores() - 1,
-                          n_cores))
-registerDoParallel(cl)
 
 # Main loop
 model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%

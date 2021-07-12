@@ -25,6 +25,8 @@ require(bayestestR)
 require(stringr)
 require(janitor)
 require(purrr)
+require(progressr)
+handlers(global = TRUE)
 
 source("functions/inverse_logit.R")
 
@@ -318,10 +320,23 @@ nboot <- 1000
 ncycles <- 1000
 ptm <- proc.time()
 
+# Setup progress bar
+handlers(list(
+  handler_progress(
+    format   = ":current/:total [:bar] :percent in :elapsed ETA: :eta",
+    width    = 100,
+    complete = "+"
+  ))
+)
+
 # Main loop
-model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
+loop_fun <- function(ncyc)
+{
+  prog <- progressor(along = 1:ncycles)
+  foreach(k = 1:ncycles, .combine = "rbind") %do%
   {
-    print(k)
+    prog(sprintf("k=%g", k))
+    #print(k)
     set.seed(k)
   
     # Partition data for training and validation
@@ -352,6 +367,9 @@ model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
     
     return(cbind(output, parameters))
   }
+}
+model_performance <- loop_fun(ncycles)
+
 #stopCluster(cl)
 proc.time() - ptm #5h for 1000/1000
 

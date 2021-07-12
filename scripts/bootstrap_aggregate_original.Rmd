@@ -93,7 +93,7 @@ registerDoParallel(cl)
 lambda_seq <-  exp(seq(-1, -6, length = 100))
 
 # Build models on bootstrapped dataset
-boot_results <- foreach(i = 1:10000, .combine = "rbind",
+boot_results <- foreach(i = 1:10, .combine = "rbind",
                               .packages = c("dplyr", "caret","foreach",
                                             "purrr", "glmnet", "tibble"),
                               .inorder = FALSE) %dopar%
@@ -143,6 +143,7 @@ boot_results %>%
   slice_head(n = 8) %>% 
   as.data.frame()
 
+# Results from 10,000
 #                    rowname prop        coef
 #                    ox_sat 0.81 -0.17668341
 #       mentions_asthmaTRUE 0.73  0.36535502
@@ -310,8 +311,9 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 
 ```{r Main loop}
 # Set up parameters 
-nboot <- 100
+nboot <- 1000
 ncycles <- 100
+ptm <- proc.time()
 
 # Main loop
 model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
@@ -325,7 +327,7 @@ model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
       slice_sample(prop = 0.75)
     
     patients_validate <- results %>% 
-      filter(id %in% patients_train$id == FALSE)
+      filter(!rowid %in% patients_train$rowid)
     
     # Train model
     model_collection <- bootstrap_aggregate(patients_train, nboot)
@@ -347,27 +349,19 @@ model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
     
     return(cbind(output, parameters))
   }
-stopCluster(cl)
+#stopCluster(cl)
 proc.time() - ptm #5h for 1000/1000
 
 # Write file
-write_rds(model_performance, "analysis/boostrap_aggregate.RDS")
+write_rds(model_performance, "analysis/boostrap_aggregate_original.RDS")
 ```
 
 ```{r Plots}
 # Reload data
-results_plot <- read_rds("analysis/boostrap_aggregate.RDS")
+results_plot <- read_rds("analysis/boostrap_aggregate_original.RDS")
 
 # Quick summary -> Performance
 results_plot %>% 
-  na.omit() %>% 
-  pivot_longer(1:12) %>% 
-  group_by(name) %>% 
-  summarise(median = median(value),
-            Q1 = quantile(value, 0.25),
-            Q3 = quantile(value, 0.75))
-
-read_rds("analysis/boostrap_aggregate_1000_1000.RDS") %>% 
   na.omit() %>% 
   pivot_longer(1:12) %>% 
   group_by(name) %>% 

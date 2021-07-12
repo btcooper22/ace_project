@@ -1,0 +1,427 @@
+---
+title: "Bootstrap Aggregation Assessment"
+author: "Ben Cooper"
+date: "22/04/2021"
+output: pdf_document
+---
+
+```{r Packages}
+require(readr)
+require(caret)
+require(glmnet)
+require(foreach)
+require(dplyr)
+require(doParallel)
+require(tools)
+require(pROC)
+require(ResourceSelection)
+require(ggplot2)
+require(tidyr)
+require(tibble)
+require(magrittr)
+require(ggpol)
+require(matrixStats)
+require(bayestestR)
+require(stringr)
+require(janitor)
+require(purrr)
+
+source("functions/inverse_logit.R")
+
+boolean_clean <- function(x)
+{
+  return(
+    x == "y"
+  )
+}
+```
+
+```{r Load and prepare data}
+# Load data
+results <- read_csv("data/ace_data_cooper_final.csv")
+
+# Check for duplicates
+duplicated_rowid <- results %>% 
+  get_dupes(person_id, date_referred) %>% 
+  group_by(person_id, date_referred) %>% 
+  slice_max(rowid) %>% 
+  ungroup() %>% 
+  select(rowid) %>% 
+  deframe()
+
+# Cleaning results
+results %<>%
+  # Remove duplicaes
+  filter(!rowid %in% duplicated_rowid) %>% 
+  # Clean boolean values
+  mutate(hospital_reqd = hospital_reqd == 1,
+         safeguarding = boolean_clean(safeguarding),
+         food_allergy = boolean_clean(food_allergy),
+         drug_allergy = boolean_clean(drug_allergy),
+         other_allergy = boolean_clean(other_allergy),
+         ox_sat_low = boolean_clean(ox_sat_low),
+         meets_ace_criteria = boolean_clean(meets_ace_criteria),
+         mentions_asthma = boolean_clean(mentions_asthma),
+         mentions_salbutamol = boolean_clean(mentions_salbutamol)) %>% 
+  # Scale numeric variables
+  mutate(ox_sat = scale(ox_sat),
+         temp = scale(temp),
+         resp_rate = scale(resp_rate),
+         heart_rate = scale(heart_rate)) %>% 
+  # Add new variables
+  mutate(referral_from_gp = referral_from == "gp",
+         abnormal_resp_rate = apls_resp_rate_cat != "normal",
+         gut_feeling_abnormal = gut_feeling != "well",
+         abnormal_heart_rate = ace_heart_rate_cat != "normal")
+
+# Build vector of acceptable features
+feature_id <- c(4,7, 9, 12:13, 15:18, 
+                20:23, 26, 31:33, 73:76,
+                35, 37:46, 48:68, 70:72)
+names(results)[feature_id]
+
+# Prepare parallel
+psnice(value = 19)
+n_cores <- 15
+cl <- makeCluster(ifelse(detectCores() <= n_cores,
+                          detectCores() - 1,
+                          n_cores))
+registerDoParallel(cl)
+```
+
+```{r Determine retained variables using bootstrapping}
+# Set parameters
+lambda_seq <-  exp(seq(-1, -6, length = 100))
+
+# Build models on bootstrapped dataset
+boot_results <- foreach(i = 1:10, .combine = "rbind",
+                              .packages = c("dplyr", "caret","foreach",
+                                            "purrr", "glmnet", "tibble"),
+                              .inorder = FALSE) %dopar%
+  {
+    set.seed(i)
+
+    # Subsample dataset with replacement
+    boot_df <- results %>% 
+      group_by(hospital_reqd) %>% 
+      slice_sample(prop = 0.5,
+                   replace = TRUE) %>% 
+      select(all_of(feature_id)) %>% 
+      na.omit()
+    
+    # Remove variables with only one factor level
+    levels_list <- map(boot_df, ~{length(unique(.x))})
+    boot_df <- boot_df[,levels_list > 1]
+    
+    # Build model components
+    x <- model.matrix(hospital_reqd~., boot_df)[,-1]
+    y <- boot_df$hospital_reqd
+    
+    # Profile over range of lambda
+    lambda_profile <-  glmnet(x, y, alpha = 1, lambda = lambda_seq,
+                              family = "binomial")
+    
+    # Find lambda best matching 10epv
+    lambda_min <- lambda_profile$lambda[which.min(abs(8 - lambda_profile$df))]
+    
+    # Fit model
+    boot_model <- glmnet(x, y, alpha = 1, lambda = lambda_min,
+                         family = "binomial")
+    
+    # Output
+    as.matrix(boot_model$beta) %>% 
+      as.data.frame() %>%
+      rownames_to_column() %>% 
+      mutate(iteration = i)
+  }
+
+boot_results %>%
+  group_by(rowname) %>% 
+  summarise(prop = mean(s0 != 0),
+            coef= mean(s0)) %>% 
+  #filter(prop > 0.8) %>% 
+  mutate(prop = round(prop, 2)) %>% 
+  arrange(desc(prop)) %>% 
+  slice_head(n = 8) %>% 
+  as.data.frame()
+
+# Results from 10,000
+#                rowname prop        coef
+#                ox_sat 0.56 -0.07989388
+#        eczema_anyTRUE 0.52  0.14365154
+#     pneumonia_anyTRUE 0.50  0.20939835
+#  referral_from_gpTRUE 0.40  0.09143854
+#   mentions_asthmaTRUE 0.37  0.12321215
+#          high_NO2TRUE 0.32  0.09892770
+#       high_vXX_1mTRUE 0.28  0.13855120
+#    bronchitis_anyTRUE 0.23  0.06459198
+```
+
+
+```{r Bagging function}
+# Test parameters
+# df <- results
+# nboot <- 100
+
+bootstrap_aggregate <- function(df, nboot)
+{
+  # Fit model on bootstrapped dataset
+  model_coefficients <- foreach(j = 1:nboot, .combine = "rbind",
+                               .packages = c("dplyr", "caret",
+                                             "foreach"),
+                               .inorder = FALSE) %dopar%
+  {
+    set.seed(j)
+    
+    # Subsample dataset with replacement
+    boot_df <- df %>% 
+      group_by(hospital_reqd) %>% 
+      slice_sample(prop = 0.75,
+                   replace = TRUE) %>%
+      ungroup()
+    
+    # Build model
+    model_instance <- glm(hospital_reqd ~ ox_sat + eczema_any +
+                            pneumonia_any + referral_from_gp +
+                            mentions_asthma + high_NO2 +
+                            high_vXX_1m + bronchitis_any,
+                          data = boot_df, family = "binomial")
+    
+    # Post-predict to determine threshold
+    preds <- predict(model_instance, newdata = boot_df)
+    
+    tuning_df <- foreach(i = seq(-2.5,-0.5,0.05),
+                         .combine = "rbind") %do%
+      {
+        boot_df$hospital_reqd_pred <- preds > i
+        
+        conMat <- confusionMatrix(boot_df$hospital_reqd_pred %>% as.factor(),
+                                  boot_df$hospital_reqd %>% as.factor())
+        
+        data.frame(threshold = i,
+                   balanced_accuracy = conMat[["byClass"]][["Balanced Accuracy"]])
+      }
+    threshold <- tuning_df$threshold[tuning_df$balanced_accuracy == max(tuning_df$balanced_accuracy)]
+    
+   t(as.data.frame(coef(model_instance))) %>% 
+     cbind(threshold)
+  }
+  
+  # Process output
+  model_coefficients %<>% as_tibble()
+  return(model_coefficients)
+}
+```
+
+```{r Prediction function}
+# Debug
+# coef_df <- bootstrap_aggregate(results, 100)
+# newdata <- results %>%
+#   group_by(hospital_reqd) %>%
+#   slice_sample(prop = 0.2,
+#                replace = TRUE)
+
+predict_from_bagging <- function(newdata, coef_df)
+{
+  predicted_classes <- foreach(i = 1:nrow(coef_df),.combine = "cbind") %do%
+    {
+      # Extract coeffcients
+      coefs <- as.numeric(coef_df[i,])
+      coefs[is.na(coefs)] <- 0
+      names(coefs) <- names(coef_df)
+      
+      # Build equation
+      pred_y <- coefs[1] + (newdata$ox_sat * coefs[2]) +
+        (newdata$eczema_any * coefs[3]) +
+        (newdata$pneumonia_any * coefs[4]) +
+        (newdata$referral_from_gp * coefs[5]) +
+        (newdata$mentions_asthma * coefs[6]) +
+        (newdata$high_NO2 * coefs[7]) +
+        (newdata$high_vXX_1m * coefs[8])+
+        (newdata$bronchitis_any * coefs[9])
+      
+      # Binarise predictions
+      as.numeric(pred_y > coefs[10])
+    }
+  return(predicted_classes)
+}
+```
+
+```{r Assessment function}
+# Debug
+# y <- newdata$hospital_reqd
+# y_pred <- predict_from_bagging(newdata, coef_df)
+
+model_assessment <- function(y, y_pred)
+{
+  # Generate confusion matrix from majority vote
+  conMat <- confusionMatrix(factor(rowMedians(y_pred) == 1),
+                            y %>% as.factor(),
+                            positive = "TRUE")
+  
+  # Generate AUC
+  roc_obj <- roc(response = y,
+                 predictor = as.numeric(rowMedians(y_pred) == 1),
+                 levels = c(FALSE, TRUE),
+                 direction = "<")
+
+  # Output
+  return(
+    data.frame(accuracy = conMat$overall[1],
+               kappa = conMat$overall[2],
+               sensitivity_recall = conMat$byClass[1],
+               specificity = conMat$byClass[2],
+               precision = conMat$byClass[5],
+               positive_predictive_value = conMat$byClass[3],
+               negative_predictive_value = conMat$byClass[4],
+               detection_rate = conMat$byClass[9],
+               detection_prevalence = conMat$byClass[10],
+               F1 = conMat$byClass[7],
+               balanced_accuracy = conMat$byClass[11],
+               AUC = ifelse(roc_obj$auc < 0.5, 1-roc_obj$auc,
+                            roc_obj$auc))
+  )
+}
+
+```
+
+No info rate - simply predict biggest class
+kappa -  0 is indicating no agreement , 0–0.20 as slight, 0.21–0.40 as fair, 0.41–0.60 as moderate, 0.61–0.80 as substantial, and 0.81–1 as almost perfect agreement.
+
+          Reference	
+Predicted	True	False
+True	      A	   B
+False   	  C	   D
+
+
+Sensitivity/Recall = A/(A+C)
+
+Specificity = D/(B+D)
+
+Prevalence = (A+C)/(A+B+C+D)
+
+PPV = (sensitivity * prevalence)/((sensitivity*prevalence) + ((1-specificity)*(1-prevalence)))
+
+NPV = (specificity * (1-prevalence))/(((1-sensitivity)*prevalence) + ((specificity)*(1-prevalence)))
+
+Detection Rate = A/(A+B+C+D)
+
+Detection Prevalence = (A+B)/(A+B+C+D)
+
+Balanced Accuracy = (sensitivity+specificity)/2
+
+F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
+
+```{r Main loop}
+# Set up parameters 
+nboot <- 1000
+ncycles <- 100
+ptm <- proc.time()
+
+# Main loop
+model_performance <- foreach(k = 1:ncycles, .combine = "rbind") %do%
+  {
+    print(k)
+    set.seed(k)
+  
+    # Partition data for training and validation
+    patients_train <- results %>% 
+      group_by(hospital_reqd) %>% 
+      slice_sample(prop = 0.75)
+    
+    patients_validate <- results %>% 
+      filter(!rowid %in% patients_train$rowid)
+    
+    # Train model
+    model_collection <- bootstrap_aggregate(patients_train, nboot)
+    
+    # Store parameter estimates
+    parameters <- model_collection %>% 
+      pivot_longer(1:length(model_collection)) %>% 
+      group_by(name) %>% 
+      summarise(estimate = median(value)) %>% 
+      pivot_wider(names_from = "name",
+                  values_from = "estimate")
+    
+    # Predict from model collection
+    predicted_admission <- predict_from_bagging(patients_validate, model_collection)
+    
+    # Assess predictions
+    output <- model_assessment(y = patients_validate$hospital_reqd,
+                     y_pred = predicted_admission)
+    
+    return(cbind(output, parameters))
+  }
+#stopCluster(cl)
+proc.time() - ptm #5h for 1000/1000
+
+# Write file
+write_rds(model_performance, "analysis/boostrap_aggregate_additional.RDS")
+```
+
+```{r Plots}
+# Reload data
+results_plot <- read_rds("analysis/boostrap_aggregate_additional.RDS")
+results_plot_original <- read_rds("analysis/boostrap_aggregate_original.RDS")
+
+# Quick summary -> Performance
+results_plot %>% 
+  pivot_longer(1:12) %>% 
+  na.omit() %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+# Original for comparison
+results_plot_original %>% 
+  pivot_longer(1:12) %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+# Quick summary -> Coefficients
+results_plot %>% 
+  pivot_longer(13:20) %>% 
+  group_by(name) %>% 
+  summarise(median = median(value),
+            Q1 = quantile(value, 0.25),
+            Q3 = quantile(value, 0.75))
+
+# Accuracy with no info rate
+results_plot %>% 
+  ggplot(aes(x = accuracy))+
+  geom_density(fill = "gray80")+
+  geom_vline(xintercept = 1 - mean(results$hospital_reqd),
+             linetype = "dashed")+
+  theme_classic(20)
+  
+# All other performance metrics
+results_plot %>% 
+  select(-accuracy,
+         -detection_prevalence) %>% 
+  pivot_longer(1:9) %>% 
+  ggplot(aes(x = value, fill = name))+
+  geom_density(alpha = 0.8)+
+  # geom_vline(aes(xintercept = median(value)),
+  #            linetype = "dashed")+
+  theme_classic(20)+
+  facet_wrap(~name, scales = "free")+
+  scale_fill_brewer(palette = "Set1")+
+  theme(legend.position = "none")
+
+# Coefficient estimates
+results_plot %>% 
+  pivot_longer(14:19) %>% 
+  group_by(name) %>% 
+  ggplot(aes(x = value, fill = name))+
+  geom_density(alpha = 0.8)+
+  # geom_vline(aes(xintercept = median(value)),
+  #            linetype = "dashed")+
+  theme_classic(20)+
+  scale_fill_brewer(palette = "Set1",
+                    name = "")+
+  theme(legend.position = "top")
+```
+

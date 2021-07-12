@@ -75,8 +75,8 @@ results %<>%
          abnormal_heart_rate = ace_heart_rate_cat != "normal")
 
 # Build vector of acceptable features
-feature_id <- c(4,7, 9:13, 15:18, 20:24,
-                26, 31:33, 73:76)
+feature_id <- c(4,7, 9:10, 12:13, 15:18, 
+                20:24, 26, 31:33, 73:76)
 names(results)[feature_id]
 ```
 
@@ -103,30 +103,26 @@ bootstrap_aggregate <- function(df, nboot)
     levels_list <- map(boot_df, ~{length(unique(.x))})
     boot_df <- boot_df[,levels_list > 1]
     
-    # Build model
-    model_instance <- glm(hospital_reqd ~ ox_sat + mentions_asthma +
-                            referral_from_gp + mentions_salbutamol +
-                            illness_severity + abnormal_resp_rate,
-                          data = boot_df, family = "binomial")
+    # Build model components
+    x <- model.matrix(hospital_reqd~., boot_df)[,-1]
+    y <- boot_df$hospital_reqd
     
-    # Post-predict to determine threshold
-    preds <- predict(model_instance, newdata = boot_df)
+    # Profile over range of lambda
+    lambda_profile <-  glmnet(x, y, alpha = 1, lambda = lambda_seq,
+                         family = "binomial")
     
-    tuning_df <- foreach(i = seq(-2.5,-0.5,0.05),
-                         .combine = "rbind") %do%
-      {
-        boot_df$hospital_reqd_pred <- preds > i
-        
-        conMat <- confusionMatrix(boot_df$hospital_reqd_pred %>% as.factor(),
-                                  boot_df$hospital_reqd %>% as.factor())
-        
-        data.frame(threshold = i,
-                   balanced_accuracy = conMat[["byClass"]][["Balanced Accuracy"]])
-      }
-    threshold <- tuning_df$threshold[tuning_df$balanced_accuracy == max(tuning_df$balanced_accuracy)]
+    # Find lambda best matching 10epv
+    lambda_min <- lambda_profile$lambda[which.min(abs(8 - lambda_profile$df))]
     
-   t(as.data.frame(coef(model_instance))) %>% 
-     cbind(threshold)
+    # Fit model
+    boot_model <- glmnet(x, y, alpha = 1, lambda = lambda_min,
+                         family = "binomial")
+    
+    # Output
+    as.matrix(boot_model$beta) %>% 
+      as.data.frame() %>%
+      rownames_to_column() %>% 
+      mutate(iteration = j)
   }
   
   # Process output

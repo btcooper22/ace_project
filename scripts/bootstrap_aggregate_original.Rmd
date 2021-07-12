@@ -23,51 +23,61 @@ require(ggpol)
 require(matrixStats)
 require(bayestestR)
 require(stringr)
+require(janitor)
+require(purrr)
 
 source("functions/inverse_logit.R")
+
+boolean_clean <- function(x)
+{
+  return(
+    x == "y"
+  )
+}
 ```
 
 ```{r Load and prepare data}
 # Load data
-results <- read.csv("data/ace_data_april21.csv")
-results$id <- 1:nrow(results)
+results <- read_csv("data/ace_data_cooper_final.csv")
 
-# Clean
-results$hospital_reqd <- results$hospital_reqd == 1
+# Check for duplicates
+duplicated_rowid <- results %>% 
+  get_dupes(person_id, date_referred) %>% 
+  group_by(person_id, date_referred) %>% 
+  slice_max(rowid) %>% 
+  ungroup() %>% 
+  select(rowid) %>% 
+  deframe()
 
-# Scale
-results$ox_sat <- scale(results$ox_sat)
-results$temp <- scale(results$temp)
-results$resp_rate <- scale(results$resp_rate)
-results$heart_rate <- scale(results$heart_rate)
-
-# Add new variables
-results %<>% 
+# Cleaning results
+results %<>%
+  # Remove duplicaes
+  filter(!rowid %in% duplicated_rowid) %>% 
+  # Clean boolean values
+  mutate(hospital_reqd = hospital_reqd == 1,
+         safeguarding = boolean_clean(safeguarding),
+         food_allergy = boolean_clean(food_allergy),
+         drug_allergy = boolean_clean(drug_allergy),
+         other_allergy = boolean_clean(other_allergy),
+         ox_sat_low = boolean_clean(ox_sat_low),
+         meets_ace_criteria = boolean_clean(meets_ace_criteria),
+         mentions_asthma = boolean_clean(mentions_asthma),
+         mentions_salbutamol = boolean_clean(mentions_salbutamol)) %>% 
+  # Scale numeric variables
+  mutate(ox_sat = scale(ox_sat),
+         temp = scale(temp),
+         resp_rate = scale(resp_rate),
+         heart_rate = scale(heart_rate)) %>% 
+  # Add new variables
   mutate(referral_from_gp = referral_from == "gp",
-         abnormal_resp_rate = apls_resp_rate_cat != "normal")
+         abnormal_resp_rate = apls_resp_rate_cat != "normal",
+         gut_feeling_abnormal = gut_feeling != "well",
+         abnormal_heart_rate = ace_heart_rate_cat != "normal")
 
-# Load air and IMD data at postcode distict level
-air_database <- read_csv("spatial/area_stats/bradford_air_district.csv")
-IMD_database <- read_csv("spatial/area_stats/bradford_imd_district.csv")
-
-# Convert postcodes to lowercase with spacing
-air_database$pcdhl <-  substr(air_database$pcdhl,3,4) %>% 
-  str_pad(2,"left", 0) %>% 
-  paste(casefold(air_database$pcdhl) %>% 
-          substr(1, 2), ., sep = "")
-
-IMD_database$pcdhl <-  substr(IMD_database$pcdhl,3,4) %>% 
-  str_pad(2,"left", 0) %>% 
-  paste(casefold(IMD_database$pcdhl) %>% 
-          substr(1, 2), ., sep = "")
-
-# Join air and IMD data to results
-results %<>% 
-  left_join(air_database, by = c("address" = "pcdhl")) %>% 
-  left_join(IMD_database, by = c("address" = "pcdhl")) %>% 
-  na.omit()
-
-results[,36:60] <- scale(results[,36:60])
+# Build vector of acceptable features
+feature_id <- c(4,7, 9:13, 15:18, 20:24,
+                26, 31:33, 73:76)
+names(results)[feature_id]
 ```
 
 ```{r Bagging function}
@@ -80,19 +90,23 @@ bootstrap_aggregate <- function(df, nboot)
                                .inorder = FALSE) %dopar%
   {
     set.seed(j)
-
+    lambda_seq <-  exp(seq(-1, -6, length = 100))
+    
     # Subsample dataset with replacement
-    boot_df <- df %>% 
+    boot_df <- results %>% 
       group_by(hospital_reqd) %>% 
-      slice_sample(prop = 0.75,
-                   replace = TRUE) %>%
-      ungroup()
+      slice_sample(prop = 0.5,
+                   replace = TRUE) %>% 
+      select(all_of(feature_id))
+    
+    # Remove variables with only one factor level
+    levels_list <- map(boot_df, ~{length(unique(.x))})
+    boot_df <- boot_df[,levels_list > 1]
     
     # Build model
     model_instance <- glm(hospital_reqd ~ ox_sat + mentions_asthma +
                             referral_from_gp + mentions_salbutamol +
-                            illness_severity + abnormal_resp_rate +
-                            NO2 + DepChi + IMDScore,
+                            illness_severity + abnormal_resp_rate,
                           data = boot_df, family = "binomial")
     
     # Post-predict to determine threshold

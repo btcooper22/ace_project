@@ -315,7 +315,7 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 ```{r Main loop}
 # Set up parameters 
 nboot <- 1000
-ncycles <- 100
+ncycles <- 1000
 ptm <- proc.time()
 
 # Main loop
@@ -383,7 +383,9 @@ results_plot_original %>%
 
 # Quick summary -> Coefficients
 results_plot %>% 
-  pivot_longer(13:20) %>% 
+  select(13:21) %>% 
+  pivot_longer(1:9) %>% 
+  na.omit() %>% 
   group_by(name) %>% 
   summarise(median = median(value),
             Q1 = quantile(value, 0.25),

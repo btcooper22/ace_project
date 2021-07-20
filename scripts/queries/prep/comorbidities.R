@@ -4,6 +4,8 @@ require(magrittr)
 require(readr)
 require(tibble)
 require(doParallel)
+require(janitor)
+require(xtable)
 
 # Load person_id list from ACE data
 person_id_list <- read_csv("data/ace_data_080621.csv",
@@ -125,3 +127,24 @@ comorb_results <- query_results %>%
 # Write results
 comorb_results %>% 
   write_csv("data/cBradford/comorbidities.csv")
+
+# Clean for tabulation
+comorb_results$comorbidity[comorb_results$term=="asthma"] <- "asthma"
+comorb_results$comorbidity[comorb_results$comorbidity=="respiratory_infection"] <- 
+  comorb_results$term[comorb_results$comorbidity=="respiratory_infection"]
+
+comorbs_filtered <- comorb_results %>% 
+  filter(comorbidity %in% c("asthma", "GERD", "eczema", "rhinitis",
+                            "bronchitis", "common cold", "croup",
+                            "pneumonia")) %>% 
+  rownames_to_column("row_id")
+
+comorbs_filtered %>% 
+  group_by(comorbidity) %>% 
+  summarise(occurence = length(unique(person_id))) %>% 
+  arrange(desc(occurence)) %>% 
+  mutate(occurence = paste(occurence, "(",
+                           round((occurence/446)*100,1),
+                           "%)", sep= "")) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)

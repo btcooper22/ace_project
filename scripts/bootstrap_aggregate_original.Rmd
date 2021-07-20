@@ -201,7 +201,7 @@ predict_from_bagging <- function(newdata, coef_df)
         ((newdata$illness_severity == "moderate") * coefs[6]) +
         (newdata$abnormal_resp_rate * coefs[7]) +
         (newdata$heart_rate * coefs[8]) +
-        (newdata$temp * coefs[9])
+        (newdata$food_allergy * coefs[9])
       
       # Binarise predictions
       as.numeric(pred_y > coefs[10])
@@ -279,7 +279,6 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 # Set up parameters 
 nboot <- 1000
 ncycles <- 1000
-ptm <- proc.time()
 
 # Setup progress bar
 handlers(list(
@@ -330,9 +329,6 @@ loop_fun <- function(ncyc)
   }
 }
 model_performance <- loop_fun(ncycles)
-
-#stopCluster(cl)
-proc.time() - ptm #5h for 1000/1000
 
 # Write file
 write_rds(model_performance, "analysis/boostrap_aggregate_original.RDS")

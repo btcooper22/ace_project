@@ -150,7 +150,7 @@ bootstrap_aggregate <- function(df, nboot)
     model_instance <- glm(hospital_reqd ~ ox_sat + eczema_any +
                             pneumonia_any + referral_from_gp +
                             mentions_asthma + high_NO2 +
-                            high_vXX_1m + bronchitis_any,
+                            high_vER_1y,
                           data = boot_df, family = "binomial")
     
     # Post-predict to determine threshold
@@ -203,11 +203,10 @@ predict_from_bagging <- function(newdata, coef_df)
         (newdata$referral_from_gp * coefs[5]) +
         (newdata$mentions_asthma * coefs[6]) +
         (newdata$high_NO2 * coefs[7]) +
-        (newdata$high_vXX_1m * coefs[8])+
-        (newdata$bronchitis_any * coefs[9])
+        (newdata$high_vER_1y * coefs[8])
       
       # Binarise predictions
-      as.numeric(pred_y > coefs[10])
+      as.numeric(pred_y > coefs[9])
     }
   return(predicted_classes)
 }
@@ -282,7 +281,6 @@ F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
 # Set up parameters 
 nboot <- 1000
 ncycles <- 1000
-ptm <- proc.time()
 
 # Setup progress bar
 handlers(list(
@@ -333,9 +331,6 @@ loop_fun <- function(ncyc)
   }
 }
 model_performance <- loop_fun(ncycles)
-
-#stopCluster(cl)
-proc.time() - ptm #5h for 1000/1000
 
 # Write file
 write_rds(model_performance, "analysis/boostrap_aggregate_additional.RDS")

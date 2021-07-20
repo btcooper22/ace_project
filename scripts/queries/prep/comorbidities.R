@@ -139,11 +139,14 @@ comorbs_filtered <- comorb_results %>%
                             "pneumonia")) %>% 
   rownames_to_column("row_id")
 
+final_patients <- read_csv("data/ace_data_cooper_final.csv")$person_id
+
 comorbs_filtered %>% 
+  filter(person_id %in% final_patients) %>% 
   group_by(comorbidity) %>% 
   summarise(occurence = length(unique(person_id))) %>% 
   arrange(desc(occurence)) %>% 
-  mutate(occurence = paste(occurence, "(",
+  mutate(occurence = paste(occurence, " (",
                            round((occurence/446)*100,1),
                            "%)", sep= "")) %>% 
   xtable() %>% 

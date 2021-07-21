@@ -207,6 +207,8 @@ model_out %>%
     metric == "sensitivity_recall" ~ "Sensitivity",
     is.character(metric) ~ to_any_case(metric, "title")
   )) %>% 
+  mutate(ratio = as.numeric(str_split(additional, " ", 2, TRUE)[,1])/
+         as.numeric(str_split(original, " ", 2, TRUE)[,1])) %>% 
   xtable() %>% 
   print(include.rownames = FALSE)
   

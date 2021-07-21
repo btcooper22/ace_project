@@ -4,9 +4,142 @@ require(ggplot2)
 require(dplyr)
 require(tidyr)
 require(forcats)
+require(tibble)
+require(janitor)
+require(bayestestR)
+require(stringr)
+source("functions/inverse_logit.R")
+require(xtable)
+
+boolean_clean <- function(x)
+{
+  return(
+    x == "y"
+  )
+}
 
 # Load data
-results <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>% 
+results <- read_csv("data/ace_data_cooper_final.csv")
+
+# Check for duplicates
+duplicated_rowid <- results %>% 
+  get_dupes(person_id, date_referred) %>% 
+  group_by(person_id, date_referred) %>% 
+  slice_max(rowid) %>% 
+  ungroup() %>% 
+  select(rowid) %>% 
+  deframe()
+
+# Cleaning results
+results %<>%
+  # Remove duplicaes
+  filter(!rowid %in% duplicated_rowid) %>% 
+  # Clean boolean values
+  mutate(hospital_reqd = hospital_reqd == 1,
+         safeguarding = boolean_clean(safeguarding),
+         food_allergy = boolean_clean(food_allergy),
+         drug_allergy = boolean_clean(drug_allergy),
+         other_allergy = boolean_clean(other_allergy),
+         ox_sat_low = boolean_clean(ox_sat_low),
+         meets_ace_criteria = boolean_clean(meets_ace_criteria),
+         mentions_asthma = boolean_clean(mentions_asthma),
+         mentions_salbutamol = boolean_clean(mentions_salbutamol)) %>% 
+  # Scale numeric variables
+  mutate(ox_sat = scale(ox_sat),
+         temp = scale(temp),
+         resp_rate = scale(resp_rate),
+         heart_rate = scale(heart_rate)) %>% 
+  # Add new variables
+  mutate(referral_from_gp = referral_from == "gp",
+         abnormal_resp_rate = apls_resp_rate_cat != "normal",
+         gut_feeling_abnormal = gut_feeling != "well",
+         abnormal_heart_rate = ace_heart_rate_cat != "normal")
+
+# Model results
+model_results <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>% 
+  select(13:20) %>% 
+  pivot_longer(1:8) %>% 
+  na.omit() %>% 
+  mutate(model = "additional") %>% 
+  rbind(
+    read_rds("analysis/boostrap_aggregate_original.RDS") %>% 
+      select(13:21) %>% 
+      pivot_longer(1:9) %>% 
+      na.omit() %>% 
+      mutate(model = "original")
+  )
+
+# Table of model results
+coef_table <- model_results %>% 
+  group_by(name, model) %>% 
+  summarise(coeficient = paste(median(round(value,2)), " [",
+                               hdi(round(value,2))$CI_low, ", ",
+                               hdi(round(value,2))$CI_high, "]", sep = "")) %>% 
+  arrange(desc(model)) %>% 
+  # Sort names
+  mutate(name = str_split(name, "TRUE", 2, TRUE)[,1],
+         name = str_split(name, "moderate", 2, TRUE)[,1]) %>% 
+  ungroup()
+
+# N and hosp for variables included
+n_hosp_table <- results %>%
+  select(any_of(c("hospital_reqd", coef_table$name))) %>% 
+  select(-heart_rate, -ox_sat) %>% 
+  mutate(illness_severity = illness_severity == "moderate") %>% 
+  pivot_longer(2:11) %>% 
+  group_by(name, hospital_reqd) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = paste(sum(value), " (",
+                              round(mean(value) * 100, 1),
+                              "%)", sep = "")) %>% 
+  pivot_wider(names_from = "hospital_reqd",
+              values_from = "ocurrance") %>% 
+  rename(`Discharged from ACE` = "FALSE",
+         `Admitted to Hospital` = "TRUE") %>% 
+  rbind(
+    results %>%
+      select(hospital_reqd, heart_rate, ox_sat) %>% 
+      mutate(ox_sat = ox_sat * attr(ox_sat, "scaled:scale") + attr(ox_sat, "scaled:center"),
+             heart_rate = heart_rate * attr(heart_rate, "scaled:scale") + attr(heart_rate, "scaled:center")) %>% 
+      pivot_longer(2:3) %>% 
+      group_by(name, hospital_reqd) %>% 
+      summarise(ocurrance = paste(median(round(value,2)), " [",
+                                  quantile(round(value,2), 0.25), ", ",
+                                  quantile(round(value,2), 0.75), "]", sep = "")) %>% 
+      pivot_wider(names_from = "hospital_reqd",
+                  values_from = "ocurrance") %>% 
+      rename(`Discharged from ACE` = "FALSE",
+             `Admitted to Hospital` = "TRUE")
+  ) %>% 
+  rbind(tibble(name = "(Intercept)", `Discharged from ACE` = "---",
+                   `Admitted to Hospital` = "---"))
+
+# Built names translation
+names_translation <- tibble(name = unique(n_hosp_table$name),
+                            newname = c("Abnormal respiratory rate","Any eczema diagnosis",
+                                        "Food allergy","High local NO2", ">4 ER visits in last year",
+                                        "Moderate illness severity", "Mentions asthma",
+                                        "Mentions salbutamon", "Any pneumonia diagnosis",
+                                        "Referral from GP",
+                                        "Heart rate", "Oxygen saturation",
+                                        "Intercept"))
+
+# Combine and print
+coef_table %>% 
+  left_join(n_hosp_table) %>% 
+  left_join(names_translation) %>% 
+  select(-name, -model) %>% 
+  relocate(newname, `Discharged from ACE`, 
+           `Admitted to Hospital`, coeficient) %>% 
+  rename(Variable = newname,
+         Coefficient = coeficient) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# Model validation
+
+# Load data
+model_out <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>% 
   select(1:12) %>% 
   pivot_longer(1:12) %>% 
   na.omit() %>% 

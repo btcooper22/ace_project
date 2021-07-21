@@ -10,6 +10,7 @@ require(bayestestR)
 require(stringr)
 source("functions/inverse_logit.R")
 require(xtable)
+require(RColorBrewer)
 
 boolean_clean <- function(x)
 {
@@ -137,6 +138,9 @@ coef_table %>%
   print(include.rownames = FALSE)
 
 # Plot
+pal <- brewer.pal(12, "Set3")
+pal[2] <- "#8f7068"
+
 model_results %>% 
   left_join(tibble(name = unique(model_results$name),
                    newname = c("Intercept", "Any eczema diagnosis", "High local NO2",
@@ -159,14 +163,14 @@ model_results %>%
         axis.text.y = element_blank(),
         axis.ticks.y = element_blank(),
         axis.line.y = element_blank())+
-  scale_fill_brewer(palette = "Set3", name = "")+
-  scale_colour_brewer(palette = "Set3", name = "")+
+  scale_fill_manual(values = pal, name = "")+
+  scale_colour_manual(values = pal, name = "")+
   labs(x = "Coefficient value",
        y = "")+
   scale_x_continuous(breaks = seq(-1.5,2.5,0.5))
 
 ggsave("written_work/report/images/additional_coefs.png",
-       height = 14, width = 12)
+       height = 10, width = 12)
 
 # Model validation----
 

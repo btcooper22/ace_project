@@ -11,6 +11,7 @@ require(stringr)
 source("functions/inverse_logit.R")
 require(xtable)
 require(RColorBrewer)
+require(snakecase)
 
 boolean_clean <- function(x)
 {
@@ -189,20 +190,8 @@ model_out <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>%
   ) %>% 
   mutate(model = fct_rev(model))
 
-# Plot
-results %>% 
-  ggplot(aes(value)) +
-  geom_density(aes(fill = model),
-               alpha = 0.8)+
-  scale_fill_brewer(palette = "Set1",
-                    name = "Model",
-                    direction = -1)+
-  theme_classic(20)+
-  theme(legend.position = "top")+
-  labs(x = "", y = "Density")+
-  facet_wrap(~name, scales = "free")
-
-results %>% 
+# Table
+model_out %>% 
   group_by(name, model) %>% 
   summarise(median = round(median(value),2),
             Q1 = round(quantile(value, 0.25),2),
@@ -212,4 +201,40 @@ results %>%
   select(metric = name, model, value) %>% 
   pivot_wider(names_from = model,
               values_from = value) %>% 
-  relocate(metric, original, additional)
+  relocate(metric, original, additional) %>% 
+  mutate(metric = case_when(
+    metric %in% c("AUC", "F1") ~ metric,
+    metric == "sensitivity_recall" ~ "Sensitivity",
+    is.character(metric) ~ to_any_case(metric, "title")
+  )) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+  
+           
+# Plot
+model_out %>% 
+  mutate(name = case_when(
+    name %in% c("AUC", "F1") ~ name,
+    name == "sensitivity_recall" ~ "Sensitivity",
+    is.character(name) ~ to_any_case(name, "title")
+  ),
+  model = to_any_case(as.character(model), "title"),
+  model = fct_rev(model)) %>% 
+  ggplot(aes(value)) +
+  geom_density(aes(fill = model,
+                   colour = model),
+               alpha = 0.5, size = 2)+
+  scale_fill_manual(values = c("#ff7f00", "#984ea3"),
+                    name = "Model")+
+  scale_colour_manual(values = c("#ff7f00", "#984ea3"),
+                    name = "Model")+
+  theme_classic(20)+
+  theme(legend.position = "top",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank())+
+  labs(x = "Performance metric value", y = "")+
+  facet_wrap(~name, scales = "free")
+
+ggsave("written_work/report/images/additional_performance.png",
+       height = 10, width = 12)

@@ -55,7 +55,7 @@ results %<>%
          gut_feeling_abnormal = gut_feeling != "well",
          abnormal_heart_rate = ace_heart_rate_cat != "normal")
 
-# Model results
+# Model results----
 model_results <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>% 
   select(13:20) %>% 
   pivot_longer(1:8) %>% 
@@ -119,7 +119,7 @@ names_translation <- tibble(name = unique(n_hosp_table$name),
                             newname = c("Abnormal respiratory rate","Any eczema diagnosis",
                                         "Food allergy","High local NO2", ">4 ER visits in last year",
                                         "Moderate illness severity", "Mentions asthma",
-                                        "Mentions salbutamon", "Any pneumonia diagnosis",
+                                        "Mentions salbutamol", "Any pneumonia diagnosis",
                                         "Referral from GP",
                                         "Heart rate", "Oxygen saturation",
                                         "Intercept"))
@@ -136,7 +136,39 @@ coef_table %>%
   xtable() %>% 
   print(include.rownames = FALSE)
 
-# Model validation
+# Plot
+model_results %>% 
+  left_join(tibble(name = unique(model_results$name),
+                   newname = c("Intercept", "Any eczema diagnosis", "High local NO2",
+                               ">4 ER visits in last year", "Mentions asthma",
+                               "Oxygen saturation", "Any pneumonia diagnosis",
+                               "Referral from GP", "Abnormal respiratory rate",
+                               "Food allergy", "Heart rate", "Moderate illness severity",
+                               "Mentions salbutamol"))) %>% 
+  select(name = newname, value, model) %>% 
+  filter(name != "Intercept") %>% 
+  mutate(model = fct_rev(model),
+         model = fct_recode(model, Original = "original",
+                            Additional = "additional")) %>% 
+  ggplot(aes(x = value, fill = name,
+             colour = name))+
+  geom_density(alpha = 0.5, size = 2)+
+  facet_wrap(~model, nrow = 2)+
+  theme_classic(20)+
+  theme(legend.position = "top",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank())+
+  scale_fill_brewer(palette = "Set3", name = "")+
+  scale_colour_brewer(palette = "Set3", name = "")+
+  labs(x = "Coefficient value",
+       y = "")+
+  scale_x_continuous(breaks = seq(-1.5,2.5,0.5))
+
+ggsave("written_work/report/images/additional_coefs.png",
+       height = 14, width = 12)
+
+# Model validation----
 
 # Load data
 model_out <- read_rds("analysis/boostrap_aggregate_additional.RDS") %>% 

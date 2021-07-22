@@ -119,12 +119,10 @@ n_hosp_table <- results %>%
 # Built names translation
 names_translation <- tibble(name = unique(n_hosp_table$name),
                             newname = c("Abnormal respiratory rate","Any eczema diagnosis",
-                                        "Food allergy","High local NO2", ">4 ER visits in last year",
-                                        "Moderate illness severity", "Mentions asthma",
-                                        "Mentions salbutamol", "Any pneumonia diagnosis",
-                                        "Referral from GP",
-                                        "Heart rate", "Oxygen saturation",
-                                        "Intercept"))
+                                        "Food allergy","High local NO2", "Moderate illness severity",
+                                        "Mentions asthma","Mentions salbutamol", "Any pneumonia diagnosis",
+                                        "Referral from GP", "Slow bronchodilators in last year",
+                                        "Heart rate", "Oxygen saturation", "Intercept"))
 
 # Combine and print
 coef_table %>% 
@@ -145,9 +143,8 @@ pal[2] <- "#8f7068"
 model_results %>% 
   left_join(tibble(name = unique(model_results$name),
                    newname = c("Intercept", "Any eczema diagnosis", "High local NO2",
-                               ">4 ER visits in last year", "Mentions asthma",
-                               "Oxygen saturation", "Any pneumonia diagnosis",
-                               "Referral from GP", "Abnormal respiratory rate",
+                               "Mentions asthma",  "Oxygen saturation", "Any pneumonia diagnosis",
+                               "Referral from GP", "Slow bronchodilators in last year", "Abnormal respiratory rate",
                                "Food allergy", "Heart rate", "Moderate illness severity",
                                "Mentions salbutamol"))) %>% 
   select(name = newname, value, model) %>% 
@@ -171,7 +168,7 @@ model_results %>%
   scale_x_continuous(breaks = seq(-1.5,2.5,0.5))
 
 ggsave("written_work/report/images/additional_coefs.png",
-       height = 10, width = 12)
+       height = 10, width = 13)
 
 # Model validation----
 

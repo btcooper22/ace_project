@@ -77,10 +77,21 @@ results %<>%
          abnormal_heart_rate = ace_heart_rate_cat != "normal")
 
 # Build vector of acceptable features
-feature_id <- c(4,7, 9, 12:13, 15:18, 
-                20:23, 31:33, 73:76,
-                35, 37:46, 48:59, 61:68,
-                70:72)
+feature_id <- which(names(results) %in% c("hospital_reqd", "age", "gender", "illness_severity", "activity_level",
+                                    "ox_sat", "resp_rate", "heart_rate", "temp", "safeguarding", "food_allergy",
+                                    "drug_allergy", "other_allergy", "meets_ace_criteria", "mentions_asthma",
+                                    "mentions_salbutamol", "referral_from_gp", "abnormal_resp_rate",
+                                    "gut_feeling_abnormal", "abnormal_heart_rate", "high_NO2" , "high_PM10",
+                                    "high_CYPScore", "high_EduScore", "high_IDCScore", "eczema_any", "eczema_year",
+                                    "eczema_6m", "respiratory_any", "bronchitis_any", "pneumonia_any", 
+                                    "many_inhalers", "many_prednisolone_courses", "many_prednisolone_courses_year",
+                                    "many_prednisolone_courses_6m", "prednisolone_1m", "prednisolone_year",
+                                    "prednisolone_6m", "log_surgery_distance", "high_surgery_distance",   
+                                    "high_log_surgery_distance", "high_hospital_distance",
+                                    "high_log_hospital_distance", "high_vER_1y", "high_vGP_6m", "high_vGP_1y", 
+                                    "high_vIP_6m", "high_vIP_1y", "high_vIP_3y", "high_vIP_total", "high_vOP_3y",
+                                    "high_vXX_1m", "high_vXX_6m", "high_vXX_1y", "slow_bronchodilator_any",
+                                    "slow_bronchodilator_year", "slow_bronchodilator_1m"))
 names(results)[feature_id]
 
 # Prepare parallel
@@ -150,7 +161,7 @@ bootstrap_aggregate <- function(df, nboot)
     model_instance <- glm(hospital_reqd ~ ox_sat + eczema_any +
                             pneumonia_any + referral_from_gp +
                             mentions_asthma + high_NO2 +
-                            high_vER_1y,
+                            slow_bronchodilator_year,
                           data = boot_df, family = "binomial")
     
     # Post-predict to determine threshold
@@ -203,7 +214,7 @@ predict_from_bagging <- function(newdata, coef_df)
         (newdata$referral_from_gp * coefs[5]) +
         (newdata$mentions_asthma * coefs[6]) +
         (newdata$high_NO2 * coefs[7]) +
-        (newdata$high_vER_1y * coefs[8])
+        (newdata$slow_bronchodilator_year * coefs[8])
       
       # Binarise predictions
       as.numeric(pred_y > coefs[9])

@@ -90,4 +90,50 @@ results %>%
   xtable() %>% 
   print(include.rownames = FALSE)
 
-            
+        
+# Demographics    
+demographics <- read_csv("data/cBradford/demographics.csv") %>% 
+  right_join(results) %>% 
+  na.omit
+table(demographics$gender_source_value)
+
+tabyl(demographics, gender_source_value)
+summary(glm(hospital_reqd ~ (gender_source_value == "M"),
+            binomial, demographics))
+
+demographics %<>% 
+  mutate(ethnic_group = case_when(
+    ethnicity_concept_id %in% c(46286810) ~ "White",
+    ethnicity_concept_id %in% c(46285832) ~ "Pakistani",
+    ethnicity_concept_id %in% c(46285827, 46285828, 46285829,
+                                46285830, 46285836, 46285837,
+                                46285839, 46286811,  0,
+                                46285831, 46285833, 46285835) ~ "Other"
+  ))
+
+tabyl(demographics, ethnic_group)
+summary(glm(hospital_reqd ~ (ethnic_group == "Pakistani"), binomial, demographics))
+summary(glm(hospital_reqd ~ (ethnic_group == "White"), binomial, demographics))
+summary(glm(hospital_reqd ~ (ethnic_group == "Other"), binomial, demographics))
+
+demographics %>%
+  select(10, 83, 5) %>% 
+  mutate(white = ethnic_group == "White",
+         pakistani = ethnic_group == "Pakistani",
+         other = ethnic_group == "Other",
+         male = gender_source_value == "M") %>% 
+  select(-ethnic_group, -gender_source_value) %>% 
+  pivot_longer(2:5) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hospital_reqd & value)) %>% 
+  arrange(desc(ocurrance)) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 436) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)

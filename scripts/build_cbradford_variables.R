@@ -859,20 +859,14 @@ summary(glm(hosp_reqd ~ (gender_source_value == "M"),
             binomial, demographics))
 
 # Ethnicity----
-asian_ethnicity <-  c("indian", "mixed Asian", "pakistani", "white asain", "british asian",
-         "asian", "sri Lankan", "other asian background", "bangladeshi")
-european_ethnicity <-  c("slovak", "british", "other white background", "czech republic",
-            "white europeon", "white british", "commonwealth russian",
-            "other european", "mixed white")
-
 demographics %<>% 
   mutate(ethnic_group = case_when(
-    ethnicity_concept_id %in% c(46286810, 0) ~ "European",
+    ethnicity_concept_id %in% c(46286810) ~ "White",
     ethnicity_concept_id %in% c(46285832) ~ "Pakistani",
-    ethnicity_concept_id %in% c(46285831, 46285833, 46285835) ~ "Other Asian",
     ethnicity_concept_id %in% c(46285827, 46285828, 46285829,
                            46285830, 46285836, 46285837,
-                           46285839, 46286811) ~ "Other"
+                           46285839, 46286811,  0,
+                           46285831, 46285833, 46285835) ~ "Other"
   ))
 
 crosstab("ethnic_group", demographics)

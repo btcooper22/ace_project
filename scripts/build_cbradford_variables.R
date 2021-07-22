@@ -11,6 +11,7 @@ require(dbplyr)
 require(lubridate)
 require(foreach)
 require(tidyr)
+require(janitor)
 bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
 crosstab <- function(varname, .df = results)
@@ -55,7 +56,7 @@ results <- tbl(con, "tmp_ACE_v2") %>%
   na.omit() %>% 
   mutate(date = as.Date(date, format = c("%d/%m/%Y")))
 
-# Comorbidities: Load and examine
+# Comorbidities: Load and examine----
 comorbidities <- read_csv("data/cBradford/comorbidities.csv")
 table(comorbidities$comorbidity)
 
@@ -615,8 +616,283 @@ if(any(profile$CI_dir_const))
   output <- profile %>% 
     slice_min(CI_width)
 }
-
 summary(glm(hosp_reqd ~ (inhalers_total > 12), "binomial", results_inhalers)) # Sure, why not
+
+# Bronchodilators----
+# Fast
+patients_fast_bronchodilator <- prescriptions %>% 
+  filter(class == "fast_bronchodilator")
+
+results_fast_bronchodilator <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in fast_bronchodilator database
+    fast_bronchodilator_subset <- patients_fast_bronchodilator %>% 
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
+    
+    if(nrow(fast_bronchodilator_subset) == 0)
+    {
+      fast_bronchodilator_any <- FALSE
+      fast_bronchodilator_any_n <- 0
+      fast_bronchodilator_year <- FALSE
+      fast_bronchodilator_year_n <- 0
+      fast_bronchodilator_6m <- FALSE
+      fast_bronchodilator_6m_n <- 0
+      fast_bronchodilator_1m <- FALSE
+      fast_bronchodilator_1m_n <- 0
+    }else
+    {
+      # Any fast_bronchodilator presciption
+      fast_bronchodilator_any <- TRUE
+      fast_bronchodilator_any_n <- nrow(fast_bronchodilator_subset)
+      
+      # Find time difference
+      recent_fast_bronchodilator <- max(fast_bronchodilator_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_fast_bronchodilator) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # fast_bronchodilator presciption within year
+      fast_bronchodilator_year <- time_diff < 365
+      fast_bronchodilator_year_n <- nrow(fast_bronchodilator_subset %>% filter(time_diff < 365))
+      
+      # fast_bronchodilator presciption within 6 months
+      fast_bronchodilator_6m <- time_diff < 182
+      fast_bronchodilator_6m_n <- nrow(fast_bronchodilator_subset %>% filter(time_diff < 182))
+      
+      # fast_bronchodilator presciption within 1 month
+      fast_bronchodilator_1m <- time_diff <= 31
+      fast_bronchodilator_1m_n <- nrow(fast_bronchodilator_subset %>% filter(time_diff <= 31))
+    }
+    
+    # Output
+    data.frame(results[i,], fast_bronchodilator_any, fast_bronchodilator_any_n,
+               fast_bronchodilator_year, fast_bronchodilator_year_n,
+               fast_bronchodilator_6m, fast_bronchodilator_6m_n,
+               fast_bronchodilator_1m, fast_bronchodilator_1m_n)
+  }
+
+crosstab("fast_bronchodilator_any", results_fast_bronchodilator) 
+crosstab("fast_bronchodilator_year", results_fast_bronchodilator) 
+crosstab("fast_bronchodilator_6m", results_fast_bronchodilator)
+crosstab("fast_bronchodilator_1m", results_fast_bronchodilator)
+
+quick_glm("fast_bronchodilator_any", results_fast_bronchodilator) # No 
+quick_glm("fast_bronchodilator_year", results_fast_bronchodilator) # No
+quick_glm("fast_bronchodilator_6m", results_fast_bronchodilator) # No
+quick_glm("fast_bronchodilator_1m", results_fast_bronchodilator) # No
+
+# Slow
+patients_slow_bronchodilator <- prescriptions %>% 
+  filter(class == "slow_bronchodilator")
+
+results_slow_bronchodilator <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in slow_bronchodilator database
+    slow_bronchodilator_subset <- patients_slow_bronchodilator %>% 
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
+    
+    if(nrow(slow_bronchodilator_subset) == 0)
+    {
+      slow_bronchodilator_any <- FALSE
+      slow_bronchodilator_any_n <- 0
+      slow_bronchodilator_year <- FALSE
+      slow_bronchodilator_year_n <- 0
+      slow_bronchodilator_6m <- FALSE
+      slow_bronchodilator_6m_n <- 0
+      slow_bronchodilator_1m <- FALSE
+      slow_bronchodilator_1m_n <- 0
+    }else
+    {
+      # Any slow_bronchodilator presciption
+      slow_bronchodilator_any <- TRUE
+      slow_bronchodilator_any_n <- nrow(slow_bronchodilator_subset)
+      
+      # Find time difference
+      recent_slow_bronchodilator <- max(slow_bronchodilator_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_slow_bronchodilator) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # slow_bronchodilator presciption within year
+      slow_bronchodilator_year <- time_diff < 365
+      slow_bronchodilator_year_n <- nrow(slow_bronchodilator_subset %>% filter(time_diff < 365))
+      
+      # slow_bronchodilator presciption within 6 months
+      slow_bronchodilator_6m <- time_diff < 182
+      slow_bronchodilator_6m_n <- nrow(slow_bronchodilator_subset %>% filter(time_diff < 182))
+      
+      # slow_bronchodilator presciption within 1 month
+      slow_bronchodilator_1m <- time_diff <= 31
+      slow_bronchodilator_1m_n <- nrow(slow_bronchodilator_subset %>% filter(time_diff <= 31))
+    }
+    
+    # Output
+    data.frame(results[i,], slow_bronchodilator_any, slow_bronchodilator_any_n,
+               slow_bronchodilator_year, slow_bronchodilator_year_n,
+               slow_bronchodilator_6m, slow_bronchodilator_6m_n,
+               slow_bronchodilator_1m, slow_bronchodilator_1m_n)
+  }
+
+crosstab("slow_bronchodilator_any", results_slow_bronchodilator) 
+crosstab("slow_bronchodilator_year", results_slow_bronchodilator) 
+crosstab("slow_bronchodilator_6m", results_slow_bronchodilator)
+crosstab("slow_bronchodilator_1m", results_slow_bronchodilator)
+
+quick_glm("slow_bronchodilator_any", results_slow_bronchodilator) # Yes 
+quick_glm("slow_bronchodilator_year", results_slow_bronchodilator) # Yes
+quick_glm("slow_bronchodilator_6m", results_slow_bronchodilator) # Yes
+quick_glm("slow_bronchodilator_1m", results_slow_bronchodilator) # Yes
+
+# Both
+patients_both_bronchodilator <- prescriptions %>% 
+  filter(class == "fast_bronchodilator" |
+           class == "slow_bronchodilator")
+
+results_both_bronchodilator <- foreach(i = 1:nrow(results), .combine = "rbind") %do%
+  {
+    # Isolate person
+    pid <- results$person_id[i]
+    date_instance <- results$date[i]
+    
+    # Check in both_bronchodilator database
+    both_bronchodilator_subset <- patients_both_bronchodilator %>% 
+      filter(person_id == pid &
+               drug_exposure_start_date < date_instance)
+    
+    if(nrow(both_bronchodilator_subset) == 0)
+    {
+      both_bronchodilator_any <- FALSE
+      both_bronchodilator_any_n <- 0
+      both_bronchodilator_year <- FALSE
+      both_bronchodilator_year_n <- 0
+      both_bronchodilator_6m <- FALSE
+      both_bronchodilator_6m_n <- 0
+      both_bronchodilator_1m <- FALSE
+      both_bronchodilator_1m_n <- 0
+    }else
+    {
+      # Any both_bronchodilator presciption
+      both_bronchodilator_any <- TRUE
+      both_bronchodilator_any_n <- nrow(both_bronchodilator_subset)
+      
+      # Find time difference
+      recent_both_bronchodilator <- max(both_bronchodilator_subset$drug_exposure_start_date)
+      time_diff <- results %>% 
+        filter(person_id == pid &
+                 date == date_instance) %>% 
+        mutate(time_diff = date - recent_both_bronchodilator) %>% 
+        select(time_diff) %>% 
+        deframe()
+      
+      # both_bronchodilator presciption within year
+      both_bronchodilator_year <- time_diff < 365
+      both_bronchodilator_year_n <- nrow(both_bronchodilator_subset %>% filter(time_diff < 365))
+      
+      # both_bronchodilator presciption within 6 months
+      both_bronchodilator_6m <- time_diff < 182
+      both_bronchodilator_6m_n <- nrow(both_bronchodilator_subset %>% filter(time_diff < 182))
+      
+      # both_bronchodilator presciption within 1 month
+      both_bronchodilator_1m <- time_diff <= 31
+      both_bronchodilator_1m_n <- nrow(both_bronchodilator_subset %>% filter(time_diff <= 31))
+    }
+    
+    # Output
+    data.frame(results[i,], both_bronchodilator_any, both_bronchodilator_any_n,
+               both_bronchodilator_year, both_bronchodilator_year_n,
+               both_bronchodilator_6m, both_bronchodilator_6m_n,
+               both_bronchodilator_1m, both_bronchodilator_1m_n)
+  }
+
+crosstab("both_bronchodilator_any", results_both_bronchodilator) 
+crosstab("both_bronchodilator_year", results_both_bronchodilator) 
+crosstab("both_bronchodilator_6m", results_both_bronchodilator)
+crosstab("both_bronchodilator_1m", results_both_bronchodilator)
+
+quick_glm("both_bronchodilator_any", results_both_bronchodilator) # No 
+quick_glm("both_bronchodilator_year", results_both_bronchodilator) # No
+quick_glm("both_bronchodilator_6m", results_both_bronchodilator) # No
+quick_glm("both_bronchodilator_1m", results_both_bronchodilator) # No
+
+# Profile slow N
+variables_of_interest <- c("slow_bronchodilator_any_n",
+                           "slow_bronchodilator_year_n",
+                           "slow_bronchodilator_6m_n",
+                           "slow_bronchodilator_1m_n")
+
+division_results <- foreach(i = 1:length(variables_of_interest),
+                            .combine = "rbind") %do%
+  {
+    # Extract to data frame
+    print(variables_of_interest[i])
+    var_df <- results_slow_bronchodilator %>% 
+      select(any_of(c("hosp_reqd", variables_of_interest[i]))) %>% 
+      rename("value" = variables_of_interest[i])
+    
+    # Find limits and build sequence
+    limits <- quantile(var_df$value, c(0.01, 0.99))
+    divisions_seq <- unique(round(seq(limits[1], limits[2], length.out = 50)))
+    
+    # Inner loop for divisions
+    profile <- foreach(d = 1:length(divisions_seq),
+                       .combine = "rbind") %do%
+      {
+        # Binarise variable
+        var_df$value_bin <- var_df$value > divisions_seq[d]
+        
+        # Build model
+        mod <- glm(hosp_reqd ~ value_bin, data = var_df,
+                   family = "binomial")
+        
+        # Extract confidence interval
+        conf_inteval <- suppressMessages(confint(mod)) 
+        
+        # Output
+        data.frame(div = divisions_seq[d], coef = coef(mod)[2], 
+                   L95 = conf_inteval[2,1], U95 = conf_inteval[2,2])
+      }
+    
+    # Add variable name
+    profile$varname <- variables_of_interest[i]
+    
+    # Calculate CI width 
+    profile$CI_width <- abs(profile$U95 - profile$L95)
+    
+    # Calculate periods where effect direction is consistant
+    profile$CI_dir_const <- sign(profile$L95) == sign(profile$U95)
+    
+    # Check for any periods that match the above
+    if(any(profile$CI_dir_const))
+    {
+      output <- profile %>% 
+        filter(CI_dir_const == TRUE) %>% 
+        slice_min(CI_width)
+    }else
+    {
+      output <- profile %>% 
+        slice_min(CI_width)
+    }
+    
+    # Prepare output
+    output %>% 
+      slice_head(n = 1)
+  }
 
 # Antihistamines----
 patients_antihistamine <- prescriptions %>% 
@@ -845,7 +1121,12 @@ results_eczema %>%
                  many_prednisolone_courses_1m = prednisolone_courses_1m > 4) %>% 
           select(many_prednisolone_courses, many_prednisolone_courses_year,
                  many_prednisolone_courses_6m, prednisolone_1m,
-                 prednisolone_year, prednisolone_6m,)) %>% 
+                 prednisolone_year, prednisolone_6m),
+        results_slow_bronchodilator %>% 
+          select(slow_bronchodilator_any,
+                 slow_bronchodilator_year,
+                 slow_bronchodilator_6m,
+                 slow_bronchodilator_1m)) %>% 
   write_csv("data/new_features/comorbidities_prescriptions.csv")
 
 # Demographics - Gender----

@@ -4,6 +4,8 @@ require(magrittr)
 require(readr)
 require(tibble)
 require(doParallel)
+require(tidyr)
+require(xtable)
 
 # Load person_id list from ACE data
 person_id_list <- read_csv("data/ace_data_080621.csv",
@@ -140,3 +142,41 @@ query_results <- tbl(con, "tbl_cooper_prescription_qry") %>%
 # Write results
 query_results %>% 
   write_csv("data/cBradford/prescriptions.csv")
+
+# Clean for tabulation
+prescriptions_filtered <- query_results %>% 
+  filter(class %in% c("antihistamine", "fast_bronchodilator",
+                      "prednisolone", "slow_bronchodilator")) %>% 
+  rownames_to_column("row_id")
+
+final_patients <- read_csv("data/ace_data_cooper_final.csv")[,1:4]
+
+# Filter to right patients and before ACE acceptance
+table_df <- foreach(i = 1:nrow(final_patients), .combine = "rbind") %do%
+  {
+    # Isolate
+    incidence_prescription <-  prescriptions_filtered %>% 
+      filter(person_id == final_patients$person_id[i] &
+               drug_exposure_start_date < final_patients$date_referred[i]) %>% 
+      select(class) %>% deframe()
+
+    # Flag
+    data.frame(
+      antihistamine = "antihistamine" %in% incidence_prescription,
+      fast_bronchodilator = "fast_bronchodilator" %in% incidence_prescription,
+      slow_bronchodilator = "slow_bronchodilator" %in% incidence_prescription,
+      prednisolone = "prednisolone" %in% incidence_prescription
+    )
+  }
+
+
+table_df %>% 
+  pivot_longer(1:4) %>% 
+  group_by(name) %>% 
+  summarise(occurence = sum(value)) %>% 
+  arrange(desc(occurence)) %>% 
+  mutate(occurence = paste(occurence, " (",
+                           round((occurence/447)*100,1),
+                           "%)", sep= ""))%>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)

@@ -10,6 +10,7 @@ require(foreach)
 require(bigrquery)
 require(DBI)
 require(dbplyr)
+require(xtable)
 
 bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
@@ -123,6 +124,45 @@ results %<>%
   left_join(imd_data) %>% 
   na.omit()
 
+# Tabulate -> Air
+results %>% 
+  filter(person_id %in% read_csv("data/ace_data_cooper_final.csv")$person_id) %>% 
+  select(hosp_reqd, NO2, PM10, PM25) %>% 
+  pivot_longer(2:4) %>% 
+  group_by(name, hosp_reqd) %>% 
+  summarise(median = round(median(value),2),
+            Q1 = round(quantile(value, 0.25),2),
+            Q3 = round(quantile(value, 0.75),2)) %>% 
+  mutate(value = paste(median, " [", Q1, ", ",
+                       Q3, "]", sep = "")) %>% 
+  select(-median, -Q1, -Q3) %>% 
+  pivot_wider(names_from = "hosp_reqd",
+              values_from = "value") %>% 
+  rename(`Discharged from ACE` = "FALSE",
+         `Admitted to Hospital` = "TRUE")  %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# Tabulate -> IMD
+results %>% 
+  filter(person_id %in% read_csv("data/ace_data_cooper_final.csv")$person_id) %>% 
+  select(3, 9:12, 14:24, 28) %>% 
+  pivot_longer(2:17) %>% 
+  group_by(name, hosp_reqd) %>% 
+  summarise(median = round(median(value),2),
+            Q1 = round(quantile(value, 0.25),2),
+            Q3 = round(quantile(value, 0.75),2)) %>% 
+  mutate(value = paste(median, " [", Q1, ", ",
+                       Q3, "]", sep = "")) %>% 
+  select(-median, -Q1, -Q3) %>% 
+  pivot_wider(names_from = "hosp_reqd",
+              values_from = "value") %>% 
+  rename(`Discharged from ACE` = "FALSE",
+         `Admitted to Hospital` = "TRUE")  %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+  
 # Air variables----
 
 # Quick-cut air variables
@@ -234,7 +274,6 @@ cut_bump("OutScore", Q = TRUE) # None
 cut_bump("WBScore") # ==VL
 cut_bump("WBScore", Q = TRUE) # None
 
-
 # Construct new variables----
 
 # List variables worth investigation
@@ -318,7 +357,7 @@ results %<>%
 # Model
 # Previous model - mentions asthma, mentions salbutamol, referral from GP, moderate severity, abnormal resp. rate
 
-# NO2 - 0.650, p = 0.0129
+# NO2 - 0.713 p = 0.0129
 summary(glm(hosp_reqd ~ high_NO2, data = results,
             family = "binomial"))
 
@@ -342,11 +381,11 @@ summary(glm(hosp_reqd ~ high_ASScore, data = results,
 summary(glm(hosp_reqd ~ high_CriScore, data = results,
             family = "binomial"))
 
-# Children and Young People Sub-domain Score - 0.471, p = 0.0386
+# Children and Young People Sub-domain Score - 0.492, p = 0.0318
 summary(glm(hosp_reqd ~ high_CYPScore, data = results,
             family = "binomial"))
 
-# Education, Skills and Training Score - 0.471, p = 0.0441
+# Education, Skills and Training Score - 0.524, p = 0.0284
 summary(glm(hosp_reqd ~ high_EduScore, data = results,
             family = "binomial"))
 
@@ -354,7 +393,7 @@ summary(glm(hosp_reqd ~ high_EduScore, data = results,
 summary(glm(hosp_reqd ~ high_HDDScore, data = results,
             family = "binomial"))
 
-# Income Deprivation Affecting Children Index (IDACI) Score - 0.471, p = 0.0386
+# Income Deprivation Affecting Children Index (IDACI) Score - 0.482, p = 0.0352
 summary(glm(hosp_reqd ~ high_IDCScore, data = results,
             family = "binomial"))
 

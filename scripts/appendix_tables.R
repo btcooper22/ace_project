@@ -137,3 +137,110 @@ demographics %>%
                       "%)", sep = "")) %>%
   xtable() %>% 
   print(include.rownames = FALSE)
+
+
+# Prescriptions of interest
+prescrip <- read_csv("data/new_features/comorbidities_prescriptions.csv") %>% 
+  select(-c(4:10)) %>% 
+  right_join(results, by = c("person_id", "date" = "date_referred")) %>% 
+  select(3:14)
+
+# Conditions, time (if applicable), binpoint (if applicable), occurrence, hospitalisation, coef, p
+prescrip %>% 
+  pivot_longer(2:12) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hosp_reqd & value)) %>% 
+  arrange(name) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 436) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# Visits
+results %>% 
+  select(4, 64:76) %>% 
+  pivot_longer(2:14) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hospital_reqd & value)) %>% 
+  arrange(name) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 436) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>%
+  mutate(visit_type = case_when(
+    grepl("vER", name) ~ "Emergency Room Visit",
+    grepl("vGP", name) ~ "Family Practice",
+    grepl("vIP", name) ~ "Inpatient Visit",
+    grepl("vOP", name) ~ "Outpatient Visit",
+    is.character(name) ~ "Any visit"),
+    time = str_split(name, "_", 3, TRUE)[,3]
+    ) %>% 
+  relocate(visit_type, time, ocurrance, hosp) %>% 
+  select(-name) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# Air pollution
+results %>% 
+  select(4, 35, 37) %>% 
+  pivot_longer(2:3) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hospital_reqd & value)) %>% 
+  arrange(name) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 446) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# IMD
+results %>% 
+  select(4, 38:40) %>% 
+  pivot_longer(2:4) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hospital_reqd & value)) %>% 
+  arrange(name) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 446) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+
+# Distances
+results %>% 
+  select(4, 60:63) %>% 
+  pivot_longer(2:5) %>% 
+  group_by(name) %>% 
+  na.omit() %>% 
+  summarise(ocurrance = sum(value),
+            hosp = sum(hospital_reqd & value)) %>% 
+  arrange(name) %>% 
+  mutate(ocurrance = paste(ocurrance, " (",
+                           (round((ocurrance / 446) * 100,1)),
+                           "%)", sep = ""),
+         hosp = paste(hosp, " (",
+                      (round((hosp / 78) * 100,1)),
+                      "%)", sep = "")) %>% 
+  xtable() %>% 
+  print(include.rownames = FALSE)
+

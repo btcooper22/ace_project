@@ -4,6 +4,9 @@ require(magrittr)
 require(readr)
 require(tibble)
 require(doParallel)
+require(janitor)
+require(xtable)
+require(tidyr)
 
 # Load person_id list from ACE data
 person_id_list <- read_csv("data/ace_data_080621.csv",
@@ -67,3 +70,22 @@ query_results <- tbl(con, "cooper_VISIT_query_20210707") %>%
 # Write results
 query_results %>% 
   write_csv("data/cBradford/visits.csv")
+
+final_patients <- read_csv("data/ace_data_cooper_final.csv")$person_id
+
+# Tabulate
+final_visits <- query_results %>% 
+  filter(person_id %in% final_patients) %>% 
+  rownames_to_column("row_id")
+
+duplicate_rows <- final_visits %>% 
+  get_dupes(person_id,  concept_name, visit_start_date) %>% 
+  select(row_id) %>% deframe()
+
+final_visits %>% 
+  filter(!row_id %in% duplicate_rows) %>% 
+  tabyl(concept_name) %>% 
+  arrange(desc(n)) %>% 
+  mutate(percent = round(percent * 100,1)) %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)

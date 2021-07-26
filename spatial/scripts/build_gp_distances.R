@@ -13,6 +13,7 @@ require(geosphere)
 require(bigrquery)
 require(DBI)
 require(dbplyr)
+require(xtable)
 
 bq_auth(email= "b.cooper@yhcr.nhs.uk")
 
@@ -106,6 +107,25 @@ results <- foreach(i = 1:nrow(patients),.combine = "rbind") %do%
   } %>% 
   mutate(log_surgery_distance = log(surgery_distance),
          log_hospital_distance = log(hospital_distance))
+
+# Tabulate
+results %>% 
+  filter(person_id %in% read_csv("data/ace_data_cooper_final.csv")$person_id) %>% 
+  select(4, 6:9) %>% 
+  pivot_longer(2:5) %>% 
+  group_by(name, hosp_reqd) %>% 
+  summarise(median = round(median(value),2),
+            Q1 = round(quantile(value, 0.25),2),
+            Q3 = round(quantile(value, 0.75),2)) %>% 
+  mutate(value = paste(median, " [", Q1, ", ",
+                       Q3, "]", sep = "")) %>% 
+  select(-median, -Q1, -Q3) %>% 
+  pivot_wider(names_from = "hosp_reqd",
+              values_from = "value") %>% 
+  rename(`Discharged from ACE` = "FALSE",
+         `Admitted to Hospital` = "TRUE")  %>%
+  xtable() %>% 
+  print(include.rownames = FALSE)
 
 # Assess results
 summary(glm(hosp_reqd ~ log_surgery_distance, data = results,

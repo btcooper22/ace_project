@@ -214,7 +214,8 @@ model_out %>%
 model_out %>% 
   mutate(name = case_when(
     name %in% c("AUC", "F1") ~ name,
-    name == "sensitivity_recall" ~ "Sensitivity",
+    name == "sensitivity_recall" ~ "Recall",
+    name == "detection_prevalence" ~ "Prevalence",
     is.character(name) ~ to_any_case(name, "title")
   ),
   model = to_any_case(as.character(model), "title"),

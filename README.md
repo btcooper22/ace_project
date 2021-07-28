@@ -56,32 +56,30 @@ This script runs Sam Relins' data preprocessing routines on the newly-linked dat
 
 # Analysis scripts (subfolder = `analysis`)
 
-These two scripts, `bootstrap_aggregate_original.Rmd` and `bootstrap_aggregate_additional.Rmd` perform the analysis itself. **WARNING:** These scripts are slow. Each one takes 3-4 hours to run on a 16-core CPU with 32GB RAM (i.e, a high performance machine). The inner loop is efficiently parallelised, and will use `n_cores - 1` if less than 16 cores are available. The two scripts only differ in that the lasso algorithm is given the additional variables in `bootstrap_aggregate_additional.Rmd`, and thus the model structure is different. Both scripts require `data/ace_data_cooper_final.csv`, which is excluded from git.
+These two scripts, `bootstrap_aggregate_original.Rmd` and `bootstrap_aggregate_additional.Rmd` perform the analysis itself. In each script, after lasso is used to determine the model structure, three main functions are defined and run iteratively. Data is partitioned, with the training partition used in the "inner loop" to generate distributions of coefficients. The validation partition is then used to assess model predictive performance. This "outer loop" is then repeated. Two main parameters control execution of the loop: `nboot` and `ncycles`, both set to 1,000. `nboot` is the number of iterations of the inner loop, and increasing this increases the robustness of the model coefficient estimates. `ncycles` is the number of iterations of the outer loop, and increasing this increases the robustness of the model performance metrics.
 
-In each script, after lasso is used to determine the model structure, three main functions are defined and run iteratively. Data is partitioned, with the training partition used in the "inner loop" to generate distributions of coefficients. The validation partition is then used to assess model predictive performance. This "outer loop" is then repeated. Two main parameters control execution of the loop: `nboot` and `ncycles`, both set to 1,000. `nboot` is the number of iterations of the inner loop, and increasing this increases the robustness of the model coefficient estimates. `ncycles` is the number of iterations of the outer loop, and increasing this increases the robustness of the model performance metrics.
+Each script returns full distributions for all model coefficients and performance metrics, and writes this as an R data structure (.RDS) file, stored in `analysis/boostrap_aggregate_original.RDS` and `analysis/boostrap_aggregate_additional.RDS` respectively. **WARNING:** These scripts are slow. Each one takes 3-4 hours to run on a 16-core CPU with 32GB RAM (i.e, a high performance machine). The inner loop is efficiently parallelised, and will use `n_cores - 1` if less than 16 cores are available. The two scripts only differ in that the lasso algorithm is given the additional variables in `bootstrap_aggregate_additional.Rmd`, and thus the model structure is different. Both scripts require `data/ace_data_cooper_final.csv`, which is excluded from git.
 
-Each script returns full distributions for all model coefficients and performance metrics, and writes this as an R data structure (.RDS) file, stored in `analysis/boostrap_aggregate_original.RDS` and `analysis/boostrap_aggregate_additional.RDS` respectively.
+# Plotting/tabulating scripts (subfolder = `plots_tables`)
 
-# Plotting/tabulating scripts
+These are fairly straightforward: `plot_results.R` generates the main results figures and tables, and `appendix_tables.R` generates cross-tabulations of variables of interest for the appendix.
 
-## `plot_results.R`
+# Functions (subfolder = `functions`)
 
-## `appendix_tables.R`
-
-# Functions
-
-## `inverse_logit.R`
-
-## `load_connected_yorkshire.R`
+Two additional functions are used: `inverse_logit.R` converts log-odds to a probability, and `load_connected_yorkshire.R` loads all the tables for the cBradford 50k dataset into two objects - `CY` for the main data, and `CY-V` for the vocabulary tables.
 
 # Data not provided
 
-`data/new_features/`
-`data/cBradford/`
-`data/ace_data_LSOA.xslx`
-`data/ace_data_cooper_final.csv`
-`data/ace_data_orig.xlsx`
-`data/ace_data_extra.xlsx`
-`data/brand_new_data.xlsx`
-`data/ace_data_linked.csv`
-`data/ace_data_extra.csv`
+The following files and folders are required to run the scripts above, but cannot be provided publically as they contain confidential patient data. 
+
+- `data/new_features/`
+- `data/cBradford/`
+- `data/ace_data_LSOA.xslx`
+- `data/ace_data_cooper_final.csv`
+- `data/ace_data_orig.xlsx`
+- `data/ace_data_extra.xlsx`
+- `data/brand_new_data.xlsx`
+- `data/ace_data_linked.csv`
+- `data/ace_data_extra.csv`
+
+They are all stored securely as a .zip file on the servers of Bradford Teaching Hospitals NHS Foundation Trust; contact John Birkinshaw, senior database manager at Connected Yorkshire.

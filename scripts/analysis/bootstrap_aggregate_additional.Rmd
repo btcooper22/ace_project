@@ -261,33 +261,6 @@ model_assessment <- function(y, y_pred)
 
 ```
 
-No info rate - simply predict biggest class
-kappa -  0 is indicating no agreement , 0–0.20 as slight, 0.21–0.40 as fair, 0.41–0.60 as moderate, 0.61–0.80 as substantial, and 0.81–1 as almost perfect agreement.
-
-          Reference	
-Predicted	True	False
-True	      A	   B
-False   	  C	   D
-
-
-Sensitivity/Recall = A/(A+C)
-
-Specificity = D/(B+D)
-
-Prevalence = (A+C)/(A+B+C+D)
-
-PPV = (sensitivity * prevalence)/((sensitivity*prevalence) + ((1-specificity)*(1-prevalence)))
-
-NPV = (specificity * (1-prevalence))/(((1-sensitivity)*prevalence) + ((specificity)*(1-prevalence)))
-
-Detection Rate = A/(A+B+C+D)
-
-Detection Prevalence = (A+B)/(A+B+C+D)
-
-Balanced Accuracy = (sensitivity+specificity)/2
-
-F1 = (1+beta^2)*precision*recall/((beta^2 * precision)+recall)
-
 ```{r Main loop}
 # Set up parameters 
 nboot <- 1000
@@ -346,72 +319,3 @@ model_performance <- loop_fun(ncycles)
 # Write file
 write_rds(model_performance, "analysis/boostrap_aggregate_additional.RDS")
 ```
-
-```{r Plots}
-# Reload data
-results_plot <- read_rds("analysis/boostrap_aggregate_additional.RDS")
-results_plot_original <- read_rds("analysis/boostrap_aggregate_original.RDS")
-
-# Quick summary -> Performance
-results_plot %>% 
-  pivot_longer(1:12) %>% 
-  na.omit() %>% 
-  group_by(name) %>% 
-  summarise(median = median(value),
-            Q1 = quantile(value, 0.25),
-            Q3 = quantile(value, 0.75))
-
-# Original for comparison
-results_plot_original %>% 
-  pivot_longer(1:12) %>% 
-  group_by(name) %>% 
-  summarise(median = median(value),
-            Q1 = quantile(value, 0.25),
-            Q3 = quantile(value, 0.75))
-
-# Quick summary -> Coefficients
-results_plot %>% 
-  select(13:21) %>% 
-  pivot_longer(1:9) %>% 
-  na.omit() %>% 
-  group_by(name) %>% 
-  summarise(median = median(value),
-            Q1 = quantile(value, 0.25),
-            Q3 = quantile(value, 0.75))
-
-# Accuracy with no info rate
-results_plot %>% 
-  ggplot(aes(x = accuracy))+
-  geom_density(fill = "gray80")+
-  geom_vline(xintercept = 1 - mean(results$hospital_reqd),
-             linetype = "dashed")+
-  theme_classic(20)
-  
-# All other performance metrics
-results_plot %>% 
-  select(-accuracy,
-         -detection_prevalence) %>% 
-  pivot_longer(1:9) %>% 
-  ggplot(aes(x = value, fill = name))+
-  geom_density(alpha = 0.8)+
-  # geom_vline(aes(xintercept = median(value)),
-  #            linetype = "dashed")+
-  theme_classic(20)+
-  facet_wrap(~name, scales = "free")+
-  scale_fill_brewer(palette = "Set1")+
-  theme(legend.position = "none")
-
-# Coefficient estimates
-results_plot %>% 
-  pivot_longer(14:19) %>% 
-  group_by(name) %>% 
-  ggplot(aes(x = value, fill = name))+
-  geom_density(alpha = 0.8)+
-  # geom_vline(aes(xintercept = median(value)),
-  #            linetype = "dashed")+
-  theme_classic(20)+
-  scale_fill_brewer(palette = "Set1",
-                    name = "")+
-  theme(legend.position = "top")
-```
-

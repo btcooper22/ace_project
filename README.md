@@ -44,7 +44,7 @@ This script links the air pollution and IMD variables to the ACE data, and exami
 
 This script measures the distance from the centroid of each LSOA to each patient's GP surgery, as well as the closest hospital. Patient information is loaded from the ACE dataset in cBradford (with LSOAs provdided from `data/ace_data_LSOA.xslx`). LSOAs are translated to latitude and longitude using `spatial/raw/postcode_gridref.csv` and `spatial/area_stats/postcode_ONS_translation.csv`, and co-ordinates for each surgery, obtained from Google Maps, are found in `spatial/raw/surgery_coords.csv`. The "final results file" (`data/ace_data_cooper_final.csv`, excluded from git) is also used for cross-tabulation. Resulting variables are binarised, and written to `data/new_features/distance.csv` (excluded from git).
 
-# Data preparation scripts
+# Data preparation scripts (subfolder = `prep`)
 
 ## `join_datasets.R`
 
@@ -54,13 +54,13 @@ This script links data on cBradford with data in spreadsheets provided by the AC
 
 This script runs Sam Relins' data preprocessing routines on the newly-linked data to ensure consistancy with previous work. It requires the `data/ace_data_linked.csv` file generated from `join_datasets.R`, as well as `data/ace_data_extra.csv` to ensure consistancy of column names. Both of these files are excluded from git. The full combined and preprocessed data is then written to the "final results file" at `data/ace_data_cooper_final.csv` (excluded from git).
 
-# Analysis scripts
+# Analysis scripts (subfolder = `analysis`)
 
-## Bootstrap aggregation workflow
+These two scripts, `bootstrap_aggregate_original.Rmd` and `bootstrap_aggregate_additional.Rmd` perform the analysis itself. **WARNING:** These scripts are slow. Each one takes 3-4 hours to run on a 16-core CPU with 32GB RAM (i.e, a high performance machine). The inner loop is efficiently parallelised, and will use `n_cores - 1` if less than 16 cores are available. The two scripts only differ in that the lasso algorithm is given the additional variables in `bootstrap_aggregate_additional.Rmd`, and thus the model structure is different. Both scripts require `data/ace_data_cooper_final.csv`, which is excluded from git.
 
-### `bootstrap_aggregate_original.Rmd`
+In each script, after lasso is used to determine the model structure, three main functions are defined and run iteratively. Data is partitioned, with the training partition used in the "inner loop" to generate distributions of coefficients. The validation partition is then used to assess model predictive performance. This "outer loop" is then repeated. Two main parameters control execution of the loop: `nboot` and `ncycles`, both set to 1,000. `nboot` is the number of iterations of the inner loop, and increasing this increases the robustness of the model coefficient estimates. `ncycles` is the number of iterations of the outer loop, and increasing this increases the robustness of the model performance metrics.
 
-### `bootstrap_aggregate_additional.Rmd`
+Each script returns full distributions for all model coefficients and performance metrics, and writes this as an R data structure (.RDS) file, stored in `analysis/boostrap_aggregate_original.RDS` and `analysis/boostrap_aggregate_additional.RDS` respectively.
 
 # Plotting/tabulating scripts
 

@@ -14,7 +14,7 @@
 
 ## build_air_maps.R
 
-## postcode_spatial_stats.R
+## build_imd_maps.R
 
 ## investigate_air_imd.R
 

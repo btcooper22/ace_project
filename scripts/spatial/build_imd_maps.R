@@ -6,7 +6,7 @@ require(magrittr)
 require(tidyr)
 
 # Load postcodes database
-postcodes <- read_csv("spatial/data/PCD_OA_LSOA_MSOA_LAD_AUG19_UK_LU.csv")
+postcodes <- read_csv("spatial/raw/PCD_OA_LSOA_MSOA_LAD_AUG19_UK_LU.csv.gz")
 
 # Filter to bradford
 bradford_codes <- postcodes %>% 
@@ -17,10 +17,10 @@ bradford_codes <- postcodes %>%
                            simplify = TRUE)[,1])
 
 # Load IMD database
-imd <- read_csv("spatial/data/Indices_of_Multiple_Deprivation_(IMD)_2019.csv")
+imd <- read_csv("spatial/raw/Indices_of_Multiple_Deprivation_(IMD)_2019.csv")
 
 # Load wards database
-wards <- read_csv("spatial/data/Lower_Layer_Super_Output_Area_(2011)_to_Ward_(2015)_Lookup_in_England_and_Wales.csv") %>% 
+wards <- read_csv("spatial/raw/Lower_Layer_Super_Output_Area_(2011)_to_Ward_(2015)_Lookup_in_England_and_Wales.csv") %>% 
   select(LSOA11CD, WD15CD) %>% 
   rename(lsoa11cd = "LSOA11CD")
 

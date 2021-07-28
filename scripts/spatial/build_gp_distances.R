@@ -46,7 +46,7 @@ patients %<>%
   left_join(LSOA_df, c("person_id" = "pkid"))
 
 # Read LSOA translation data
-postcode_gridref <- read_csv("spatial/data/grid/postcode_gridref.csv") %>% 
+postcode_gridref <- read_csv("spatial/raw/postcode_gridref.csv") %>% 
   na.omit()
 postcode_ons <- read_csv("spatial/area_stats/postcode_ONS_translation.csv")
 
@@ -73,7 +73,7 @@ patients %<>%
 #   write_csv("spatial/data/surgery_coords.csv")
 
 # Read list of GP surgeries and coordinates
-surgery_coords <- read_csv("spatial/data/surgery_coords.csv")
+surgery_coords <- read_csv("spatial/raw/surgery_coords.csv")
 
 # Loop through patients
 results <- foreach(i = 1:nrow(patients),.combine = "rbind") %do%

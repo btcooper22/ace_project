@@ -9,16 +9,16 @@ require(tidyr)
 require(magrittr)
 
 # Load postcode conversion file
-postcodes <- read_csv("spatial/data/grid/postcode_gridref.csv") %>% 
+postcodes <- read_csv("spatial/raw/postcode_gridref.csv") %>% 
   filter(Description != "postcode not found")
 
 # Load pollution data
-no2_dat <- read_csv("spatial/data/air/30-no2-2018.csv", skip = 5)
-nox_dat <- read_csv("spatial/data/air/30-nox-2018.csv", skip = 5) %>% 
+no2_dat <- read_csv("spatial/raw/30-no2-2018.csv", skip = 5)
+nox_dat <- read_csv("spatial/raw/30-nox-2018.csv", skip = 5) %>% 
   select(1:6)
-pm10_dat <- read_csv("spatial/data/air/30-pm10-2018.csv", skip = 5) %>% 
+pm10_dat <- read_csv("spatial/raw/30-pm10-2018.csv", skip = 5) %>% 
   select(1:6)
-pm25_dat <- read_csv("spatial/data/air/30-pm25-2018.csv", skip = 5) %>% 
+pm25_dat <- read_csv("spatial/raw/30-pm25-2018.csv", skip = 5) %>% 
   select(1:6)
 
 # Combine pollution data

@@ -63,7 +63,7 @@ ace_data_orig <- read_excel("data/ace_data_orig.xlsx",
 ace_data_orig <- ace_data_orig[2:nrow(ace_data_orig),1:24]
 names(ace_data_orig)[22] <- "Temperature"
 
-ace_data_extra <- read_excel("data/ace_data_extra.xslx.xlsx", 
+ace_data_extra <- read_excel("data/ace_data_extra.xlsx", 
                                   sheet = "Referral Accepted", skip = 2)
 ace_data_extra <- ace_data_extra[2:nrow(ace_data_extra),1:35]
 names(ace_data_extra)[c(20, 25,27,28)] <- c("Activity Level of Child",

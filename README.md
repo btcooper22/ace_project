@@ -48,7 +48,11 @@ This script measures the distance from the centroid of each LSOA to each patient
 
 ## `join_datasets.R`
 
+This script links data on cBradford with data in spreadsheets provided by the ACE team. This is necessary, as the spreadsheets contain a number of physiological variables which are known to have a relationship with hospitalisation which are not yet available on the cBradford platform. Spreadsheet data came from three files: `data/ace_data_orig.xlsx"`, `data/ace_data_extra.xlsx` and `data/brand_new_data.xlsx`, all of which are excluded from git. As the `person_id` variable which links the ACE data on cBradford to the wider platform is not used in the spreadsheets provided by the ACE team, other variables were used to link unique entries. These variables are first cleaned to ensure formatting matches between the spreadsheet and cBradford versions, then the datasets are joined. Identifying variables were patient age, address, GP surgery, whether hospitalisation was required, "number of bed days saved", ethnicity, referral source, referral date and referral time. The combined dataset is then written to `data/ace_data_linked.csv` (excluded from git).
+
 ## `import_data.Rmd`
+
+This script runs Sam Relins' data preprocessing routines on the newly-linked data to ensure consistancy with previous work. It requires the `data/ace_data_linked.csv` file generated from `join_datasets.R`, as well as `data/ace_data_extra.csv` to ensure consistancy of column names. Both of these files are excluded from git. The full combined and preprocessed data is then written to the "final results file" at `data/ace_data_cooper_final.csv` (excluded from git).
 
 # Analysis scripts
 
@@ -76,3 +80,8 @@ This script measures the distance from the centroid of each LSOA to each patient
 `data/cBradford/`
 `data/ace_data_LSOA.xslx`
 `data/ace_data_cooper_final.csv`
+`data/ace_data_orig.xlsx`
+`data/ace_data_extra.xlsx`
+`data/brand_new_data.xlsx`
+`data/ace_data_linked.csv`
+`data/ace_data_extra.csv`

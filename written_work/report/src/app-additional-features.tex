@@ -1,0 +1,244 @@
+% Tables of all derived variables 
+%--------------------------------
+
+% Demographics
+\begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of demographic variables]{Occurrence and effect on hospitalisation of demographic variables . The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable . As such, if this percentage is greater than the occurrence of the condition, then that demographic characteristic is linked to a disproportionately high rate of hospitalisation.}
+\centering
+\begin{tabular}{P{2.25cm}P{2.25cm}P{2.25cm}P{1.75cm}P{1cm}}
+  \hline
+Variable & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p} \\ 
+  \hline
+Male Gender & 267 (61.2\%) & 51 (65.4\%) & 0.217 & 0.407 \\ 
+Ethnic group & &\\
+  \quad Pakistani & 205 (47\%) & 37 (47.4\%) & 0.020 & 0.935\\ 
+  \quad White & 137 (31.4\%) & 25 (32.1\%) & 0.035 & 0.895  \\ 
+  \quad Other & 94 (21.6\%) & 16 (20.5\%) & -0.076 & 0.804\\ 
+   \hline
+\end{tabular}\label{tab:additional-demographics-table}
+\end{table}
+
+% Comorbidities
+   \begin{table}[H]
+   \caption[List of co-morbidities extracted from Connected Bradford]{List of co-morbidities extracted from Connected Bradford. GORD = Gastro-oesophageal reflux disease.}
+       \centering
+       \begin{tabular}{P{2.5cm}P{2.5cm}}
+           \hline
+           Condition & Occurrence\\
+           \hline
+Asthma & 217 (48.7\%) \\ 
+  Eczema & 209 (46.9\%) \\ 
+  Bronchitis & 74 (16.6\%) \\ 
+  Pneumonia & 59 (13.2\%) \\ 
+  Common cold & 46 (10.3\%) \\ 
+  Rhinitis & 43 (9.6\%) \\ 
+  Croup & 22 (4.9\%) \\ 
+  GORD & 22 (4.9\%) \\ 
+           \hline
+           	Total & 446\\
+           	\hline
+       \end{tabular}\label{tab:additional-comorbidity-table}
+   \end{table}
+   
+% Prescriptions
+\begin{table}[H]
+   \caption{List of prescription data extracted from Connected Bradford}
+\centering
+\begin{tabular}{ll}
+  \hline
+Drug category & Occurrence \\ 
+  \hline
+Fast bronchodilators & 348 (77.9\%) \\ 
+  Prednisolone & 232 (51.9\%) \\ 
+  Slow bronchodilators & 141 (31.5\%) \\ 
+  Antihistamines & 138 (30.9\%) \\ 
+   \hline
+\end{tabular}\label{tab:additional-prescription-table}
+\end{table}
+
+% Visits
+\begin{table}[H]
+   \caption{List of visit data extracted from Connected Bradford.}
+\centering
+\begin{tabular}{lr}
+  \hline
+Visit type & \textit{n} (\%) \\ 
+  \hline
+Family Practice Visits & 20,558 (81.7\%) \\ 
+  Emergency Room Visit & 2,767 (11.0\%) \\ 
+  Inpatient Visit & 1,671 (6.6\%) \\ 
+  Outpatient Visit & 159 (0.6\%) \\ 
+   \hline
+\end{tabular}\label{tab:additional-visit-table}
+\end{table}
+
+% Air
+\begin{table}[H]
+   \caption[Background air pollution concentration estimates grouped by admission to hospital]{Background air pollution concentration estimates grouped by admission to hospital. Concentrations are presented in $\mu$g$\cdot$m$^3$, and reported as medians with upper and lower quartiles.}
+\centering
+\begin{tabular}{lll}
+  \hline
+Variable & Discharged from ACE & Admitted to Hospital \\ 
+  \hline
+NO$_2$ & 15.99 [14.13, 17.97] & 16.65 [14.48, 19.51] \\ 
+  PM$_{10}$ & 13.16 [12.11, 13.84] & 13.25 [12.38, 13.86] \\ 
+  PM$_{2.5}$ & 9.1 [8.31, 9.63] & 9.15 [8.57, 9.64] \\ 
+   \hline
+\end{tabular}\label{tab:additional-air-table}
+\end{table}
+
+% IMD
+\begin{table}[H]
+\centering
+   \caption{Indices of multiple deprivation (IMD) grouped by admission to hospital.}
+\begin{tabular}{lP{3.65cm}ll}
+  \hline
+Variable & Description & Discharged from ACE & Admitted to Hospital \\ 
+  \hline
+  BHSScore & Barriers to housing and services & 17.87 [14.42, 21.37] & 17.02 [14.67, 21.46] \\ 
+  CriScore & Crime & 1.23 [0.89, 1.66] & 1.35 [0.79, 1.72] \\ 
+  EduScore & Education, skills and training & 50.46 [28.84, 64.01] & 56.51 [33.97, 65.63] \\ 
+  EmpScore & Employment & 0.17 [0.12, 0.2] & 0.18 [0.13, 0.21] \\ 
+  EnvScore & Living environment & 38.49 [24.42, 52.43] & 38.37 [24.72, 53.73] \\ 
+  HDDScore & Health deprivation and disability & 0.82 [0.5, 1.13] & 0.93 [0.59, 1.13] \\ 
+  IDCScore & Income deprivation affecting children & 0.26 [0.19, 0.32] & 0.29 [0.21, 0.36] \\ 
+  IDOScore & Income deprivation affecting older people & 0.32 [0.19, 0.5] & 0.33 [0.21, 0.52] \\ 
+  IMDScore & Index of multiple deprivation & 43.77 [31.91, 54.02] & 46.67 [32.58, 55.44] \\ 
+  IncScore & Income & 0.26 [0.17, 0.32] & 0.28 [0.18, 0.33] \\ 
+  ASScore & Adult skills sub-domain& 0.48 [0.38, 0.56] & 0.48 [0.4, 0.57] \\
+  CYPScore & Children and young people sub-domain & 0.71 [0.37, 1.17] & 0.92 [0.55, 1.25] \\ 
+  GBScore & Geographical barriers sub-domain & -0.56 [-0.94, -0.14] & -0.51 [-0.86, -0.14] \\ 
+  IndScore & Indoors sub-domain & 0.92 [0.47, 1.28] & 0.89 [0.24, 1.26] \\ 
+  OutScore & Outdoors sub-domain & 0.5 [0.13, 0.84] & 0.59 [0.28, 0.92] \\ 
+  WBScore & Wider barriers sub-domain & 1.04 [-0.27, 2.01] & 1.03 [-0.15, 2.01] \\ 
+   \hline
+\end{tabular}\label{tab:additional-IMD-table}
+\end{table}
+
+% Distances
+\begin{table}[H]
+\centering
+   \caption{Healthcare distance metrics (in meters or log meters) grouped by admission to hospital.}
+\begin{tabular}{lll}
+  \hline
+name & Discharged from ACE & Admitted to Hospital \\ 
+  \hline
+  Distance to surgery & 917.01 [554.52, 1789.65] & 1153.24 [604.38, 1681.72] \\ 
+  Distance to hospital & 2265.56 [1334.02, 3628.76] & 2277.96 [1527.18, 3290.22] \\ 
+  log(Distance to surgery) & 6.82 [6.32, 7.49] & 7.05 [6.4, 7.43] \\ 
+  log(Distance to hospital) & 7.73 [7.2, 8.2] & 7.73 [7.33, 8.1] \\ 
+   \hline
+\end{tabular}\label{tab:additional-distance-table}
+\end{table}
+   
+   
+% For all variables of interest, occurance, GLM results & binarisation point
+%---------------------------------------------------------------------------
+
+% Comorbidities
+   \begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of co-morbidity variables of interest]{Occurrence and effect on hospitalisation of co-morbidity variables of interest. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation. `Other resp' = Other respiratory conditions, comprising influenza, common cold, hay fever, sinusitis, croup and streptococcal pharyngitis.}
+       \centering
+       \begin{tabular}{P{2.25cm}P{1.25cm}P{2.25cm}P{2.25cm}P{1.75cm}P{1cm}}
+           \toprule
+           Condition & Time & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p}\\
+           \toprule
+           Eczema & Any & 209 (46.9\%) & 49 (62.8\%) &  0.691 & 0.003\\ 
+  Other resp. & Any & 155 (34.8\%) & 33 (42.3\%) & 0.478 & 0.039 \\ 
+  Bronchitis & Any & 74 (16.6\%) & 20 (25.6\%) & 0.589 & 0.033 \\ 
+  Pneumonia & Any & 59 (13.2\%) & 19 (24.4\%) & 0.907 & 0.002  \\ 
+  Eczema & Year & 39 (8.7\%) & 10 (12.8\%) & 0.703 & 0.042 \\ 
+  Pneumonia & Year & 22 (4.9\%) & 8 (10.3\%) & 1.012 & 0.024 \\ 
+           	\toprule
+       \end{tabular}\label{tab:additional-comorbidity-interest}
+   \end{table}
+   
+% Prescriptions
+\begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of prescription variables of interest]{Occurrence and effect on hospitalisation of prescription variables of interest. `Time' refers to prescription of a medication of the indicated group within a fixed period before ACE acceptance. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation.}
+       \centering
+\begin{tabular}{P{2.8cm}P{1.65cm}P{2.25cm}P{2.25cm}P{1.75cm}P{1cm}}
+  \hline
+Prescription & Time & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p}\\ 
+  \hline
+  \textgreater 12 Inhalers & Any & 27 (6.2\%) & 8 (10.3\%) & 0.863 & 0.007\\ 
+  \textgreater 4 Prednisolone courses & 6 months & 43 (9.9\%) & 12 (15.4\%) & 0.765 & 0.028 \\ 
+  \textgreater 3 Prednisolone courses & Year & 53 (12.2\%) & 13 (16.7\%) & 0.732 & 0.018 \\ 
+  \textgreater 4 Prednisolone courses & Any  & 44 (10.1\%) & 13 (16.7\%) & 1.22 & 0.037\\ 
+  Prednisolone & 6 months & 100 (22.9\%) & 22 (28.2\%) &  0.476 & 0.066\\ 
+  Prednisolone & Year & 151 (34.6\%) & 31 (39.7\%) & 0.431 & 0.065 \\ 
+  Slow-acting bronchodilators & 1 month & 42 (9.6\%) & 12 (15.4\%) & 0.797 & 0.023\\ 
+  Slow-acting bronchodilators & 6 months & 89 (20.4\%) & 25 (32.1\%) & 0.887 & <0.001 \\ 
+  Slow-acting bronchodilators & Year & 107 (24.5\%) & 29 (37.2\%) & 0.766 & 0.002 \\ 
+  Slow-acting bronchodilators & Any & 140 (32.1\%) & 35 (44.9\%) & 0.647 & 0.006 \\ 
+   \hline
+\end{tabular}\label{tab:additional-prescriptions-interest}
+\end{table}
+
+% Visists
+\begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of visit variables of interest]{Occurrence and effect on hospitalisation of visit variables of interest. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation.}
+       \centering
+\begin{tabular}{P{3.75cm}P{1.65cm}P{2.25cm}P{2.25cm}P{1.75cm}P{1cm}}
+  \hline
+Visit type  & Time & Occurrence & Hospitalisation  & Coefficient & \textit{p}\\ 
+(Threshold) &&&(\%)&\\
+  \hline
+	Emergency Room Visits (\textgreater 4) & 1 year & 23 (5.3\%) & 8 (10.3\%) & 1.079 & 0.012\\ 
+  Family Practice Visits (\textgreater 4) & 6 months & 251 (57.6\%) & 52 (66.7\%) & 0.504 & 0.031\\ 
+  Family Practice Visits (\textgreater 6) & 1 year & 323 (74.1\%) & 62 (79.5\%) & 0.550 & 0.039\\ 
+  Inpatient Visits (\textgreater 1) & 6 months & 57 (13.1\%) & 14 (17.9\%) & 0.641 & 0.037\\ 
+  Inpatient Visits (\textgreater 2) & 1 year & 59 (13.5\%) & 16 (20.5\%) & 0.824 & 0.006\\ 
+  Inpatient Visits (\textgreater 4) & 3 years & 71 (16.3\%) & 18 (23.1\%) 0.613 & 0.029\\ 
+  Inpatient Visits (\textgreater 9) & Total & 37 (8.5\%) & 11 (14.1\%) & 0.765 & 0.028\\ 
+  Any Visits (\textgreater 6) & 1 month & 23 (5.3\%) & 8 (10.3\%) & 1.012 & 0.024\\ 
+   Any Visits (\textgreater 4) & 6 months & 274 (62.8\%) & 55 (70.5\%) &  0.533 & 0.027\\ 
+  Any Visits (\textgreater 8) & 1 year & 309 (70.9\%) & 58 (74.4\%) & 0.541 & 0.037\\ 
+   \hline
+\end{tabular}\label{tab:additional-visits-interest}
+\end{table}
+
+% Air pollution
+\begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of air pollution variables of interest]{Occurrence and effect on hospitalisation of air pollution variables of interest. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation.}
+\centering
+\begin{tabular}{lP{2.25cm}P{2.5cm}P{1.75cm}P{1cm}}
+  \hline
+Variable (Threshold) & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p}\\ 
+  \hline
+ NO$_2$ > 18.75 $\mu$g$\cdot$m$^3$ & 80 (17.9\%) & 22 (28.2\%) & 0.713 & 0.008\\ 
+  PM$_{10}$ > 13.5 $\mu$g$\cdot$m$^3$ & 147 (33\%) & 33 (42.3\%) & 0.502 & 0.032\\ 
+   \hline
+\end{tabular}\label{tab:additional-air-interest}
+\end{table}
+
+% IMD
+\begin{table}[H]
+   \caption[Occurrence and effect on hospitalisation of indices of multiple deprivation (IMD) variables of interest]{Occurrence and effect on hospitalisation of indices of multiple deprivation (IMD) variables of interest. Descriptions for abbreviations are found in \Cref{tab:additional-IMD-table}. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation.}
+\centering
+\begin{tabular}{lP{2.25cm}P{2.5cm}P{1.75cm}P{1cm}}
+  \hline
+Variable (Threshold) & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p}\\ 
+  \hline
+CYPScore \textgreater 0.85 & 191 (42.8\%) & 41 (52.6\%) & 0.492 & 0.032\\ 
+  EduScore \textgreater 45.75& 252 (56.5\%) & 54 (69.2\%) & 0.524 & 0.028\\ 
+  IDCScore \textgreater 0.25& 187 (41.9\%) & 42 (53.8\%) & 0.482 & 0.035\\ 
+   \hline
+\end{tabular}\label{tab:additional-IMD-interest}
+\end{table}
+
+% Distances
+\begin{table}[H]
+\centering
+   \caption[Occurrence and effect on hospitalisation of distance variables of interest]{Occurrence and effect on hospitalisation of distance variables of interest. The `coefficient' and `\textit{p}' columns are the output of binomial GLM with hospitalisation as the response variable, and the variable of interest as the sole explanatory variable. Hospitalisation \% refers to the proportion of hospitalised cases that were `true' for each variable of interest. As such, if this percentage is greater than the occurrence of the condition, then that condition is linked to a disproportionately high rate of hospitalisation.}
+\begin{tabular}{lP{2.25cm}P{2.5cm}P{1.75cm}P{1cm}}
+  \hline
+Variable (Threshold) & Occurrence & Hospitalisation (\%) & Coefficient & \textit{p}\\ 
+  \hline
+  Distance to surgery \textgreater 1200 m & 187 (41.9\%) & 39 (50\%) & 0.508 & 0.026\\ 
+  Distance to hospital \textgreater 2090 m & 245 (54.9\%) & 50 (64.1\%) & 0.516 & 0.031\\ 
+  log(Distance to surgery) \textgreater 7.1& 190 (42.6\%) & 39 (50\%) & 0.482 & 0.035\\ 
+  log(Distance to hospital) \textgreater 7.6& 242 (54.3\%) & 50 (64.1\%) & 0.550 & 0.022\\ 
+   \hline
+\end{tabular}\label{tab:additional-distance-interest}
+\end{table}

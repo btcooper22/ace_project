@@ -1,0 +1,146 @@
+   \section{Task Description and Methods}\label{sec:task-description-and-methods}
+
+   The ACE dataset contains free text notes that detail the medical history, initial examination information, and the treatment recommendations made for each patient on referral. As with all free-text, these notes are unstructured - there is no direct approach to represent them numerically. Because of this, they do not appear in the initial data analysis (\Cref{ch:the-data}) or initial modelling (\Cref{ch:classification-modelling}). That isn't to say that these notes don't contain useful information, or that it isn't possible to leverage the information therein, only that doing so requires a different approach. Natural Language Processing (NLP) includes many such approaches to analysing and modelling free text data \cite{nltk}. In this  experiment we aimed to analyse the free text data to identify words or concepts that are predictors of hospitalisation.
+
+   The following are brief introductions to the concepts that are used in this experiment:
+
+   \subsection{Bag of Words}\label{subsec:bag-of-words}
+
+   Free text analysis will often begin by representing the text as a ``bag of words''. This is a list (or vector) representation, in which each position (or index location) represents a word, and the integer value at each position is a count of the respective word as it appears in the text. For example, the sentences:
+
+   \vspace{3mm}
+   \textbf{sentence 1}: \textit{``the cat sat on the mat''}
+
+   \textbf{sentence 2}: \textit{``the dog sat with the ball''}
+   \vspace{3mm}
+
+   can be represented by counts of the words that appear in them, using a common vocabulary as follows:
+
+   \begin{table}[H]
+       \centering
+       \begin{tabular}{ P{23mm} P{8mm} P{8mm} P{8mm} P{8mm} P{8mm} P{8mm} P{8mm} P{8mm} }
+           \toprule
+           & \textbf{the} & \textbf{cat} & \textbf{dog}  & \textbf{sat} & \textbf{on} & \textbf{with} & \textbf{mat} & \textbf{ball} \\\toprule
+           \textbf{Sentence 1} & 2 & 1 & 0 & 1 & 1 & 0 & 1 & 0 \\
+           \textbf{Sentence 2} & 2 & 0 & 1 & 1 & 0 & 1 & 0 & 1 \\
+           \toprule
+       \end{tabular}\label{tab:table}
+   \end{table}
+
+   This approach decomposes text into a numeric or vector representation, thus offering a means to analyse text statistically.
+
+   \subsection{Pre-processing}\label{subsec:pre-processing}
+
+   Applying the bag of words approach unconstrained will usually lead to huge vector representations of text (consider the variety of words in common English). These huge vectors are difficult to interpret statistically. As such, the process of ``tokenising'' - representing text numerically - will often involve a number of pre-processing techniques that reduce the size of the common vocabulary, thereby reducing the length and complexity of the resulting vector representations. The following pre-processing techniques are used in this experiment:
+
+   \begin{itemize}
+       \item \textbf{Stopwords}: The most common words in natural language often do not have any meaning when taken in isolation. Examples include ``and'', ``the'', ``it'', ``is'', ``of'' etc. It is common when performing simple NLP analyses to compose a list of such words and remove them from the vocabulary.
+       \item \textbf{Stemming}: The English language includes a number of conjugations or inflections of words that have a common stem. For example the stem of the words ``given''/``giving''/``gave'' is ``give''. Counting these words individually is to treat them as separate and independent, which may not be desirable given their common meaning. Stemming reduces examples of such inflections to a common root, reducing the size of the vocabulary whilst retaining most of the information or meaning from the words that are redacted.
+   \end{itemize}
+
+   Other pre-processing decisions \textit{add} additional words to the vocabulary. Considering only individual words eliminates the contextual relationships of pairs or groupings of words. When building a vocabulary ``n-grams'' can also be considered - these are groupings of n words that are considered as an individual element of the vocabulary in their own right. Bigrams, for example, are the pairs of words that appear in the text - bigrams from the first example sentence we saw above would be ``The cat''/ ``cat sat'' /``sat on''/``on the''/``the mat''. By considering such ``n-grams'', one can include some of the contextual relationships between the words in a text, that considering individual words would ignore. We might, for example, encounter the bigram "severe asthma" in the ACE notes, which has an important meaning that may not be captured by only noting the presence of the two words independently.
+
+   \textbf{Note}: Accounting for n-grams, a vocabulary can now contain word groupings as well as individual words. Therefore, to avoid confusion the individual elements of a vocabulary are often referred to as ``tokens'' rather than words.
+
+   \subsection{TF-IDF: Term Frequency / Inverse Document Frequency}\label{subsec:tf-idf:-term-frequency-/-inverse-document-frequency}
+
+   Given a numeric ``bag of words'' representations of text, we inevitably wish to analyse the word composition. Our intuition may be to assume that words that appear more frequently are more important. This assumption has two key flaws; flaws that can be addressed by using Term Frequency / Inverse Document Frequency (TF-IDF):
+
+   \begin{enumerate}
+       \item Using raw word counts will inevitably lead to higher counts of words in longer texts, leading to a bias that assumes words that appear in longer texts are more important. Calculating the term frequency, the relative frequency of a word as it appears in the text, overcomes this issue.
+       \item The wider context of the other texts that are being used for comparison is important. The importance of the word ``patient'' will depend on how common it is in general - its meaning will likely be very important if it only appears in a few specific texts, and will be of less importance if it appears in every other text in our corpus. The inverse document frequency calculates the inverse of the number of documents (notes in this context) that a given word appears in. It provides a measure of how common or rare a word is within the context of a wider corpus of texts.
+   \end{enumerate}
+
+   By combining term frequency and inverse document frequency, we can establish an estimate of word importance that accounts for the length of the text, and the vocabulary of the wider corpus of texts being analysed.
+
+   \subsection{Purpose}
+
+   A note of caution: The motivation behind this experiment is \textbf{not to establish the free-text notes as predictors themselves}. Free text features are problematic as predictors for a number of reasons (the following points are not exhaustive):
+
+   \begin{itemize}
+       \item They vary considerably depending on the way a note is phrased, regardless of any difference in the underlying meaning
+       \item They lack any pre-determined format, so information important to a referral may be present in some notes, but may be omitted in others
+       \item Author's style of writing has a considerable effect on the composition of notes, particularly with a small group of authors like the ACE team, and can introduce unintended biases as a result
+   \end{itemize}
+
+   Because of issues like those above (and many others), robust classification models that use free text require training corpora that are many times larger than the examples available in the ACE dataset. As such, it is not feasible to use the free text notes as predictors in their entirety. Instead, the purpose of this experiment is to analyse the free-text notes and to identify any individual words/phrases that show a promising correlation with hospitalisation. This analysis can be used as a guide to collect more robust data from patient records, that have a greater provenance or accuracy than the content of the notes.
+
+
+   \section{Experimental set-up}\label{sec:experimental-set-up2}
+
+   \subsection{Text Pre-processing}\label{subsec:text-pre-processing}
+
+   We took the three free-text features from the ACE dataset - ``medical history'', ``examination summary'' and ``recommendation'' - and used the following pipeline to represent them numerically:
+
+   \begin{itemize}
+       \item \textbf{Stopwords}: A pre-determined list of stopwords were removed from the notes. The NLTK (natural language toolkit) python package \cite{nltk} list of English language stopwords were used appended with an additional list of words specific to this task (details can be found in \textbf{\textit{/exploration/text\_analysis.ipynb}} from the project repo).
+       \item \textbf{Stemming}: We stemmed the words to reduce the variety of inflections/conjugations - the NLTK ``SnowballStemmer'' was used [reference]
+       \item \textbf{Vectorising}: We built a vocabulary of individual words and bigrams (pairs of words) and reduced this vocabulary to the 500 most common words/bigrams. Notes were ``vectorised'' using this vocabulary - represented as raw counts of these 500 tokens.
+       \item \textbf{TF-IDF}: TF-IDF values for each of the vectorised notes were then calculated.
+   \end{itemize}
+
+   Note: the above pipeline was applied to each text feature individually i.e.\ vocabularies and inverse document frequencies were established for each of the text notes (``medical history'', ``examination summary'', ``recommendation'') separately.
+
+   \subsection{Analysis}\label{subsec:analysis}
+
+   We analysed the TF-IDF values visually to identify differences in the distribution of notes relating to patients that were hospitalised and those that were discharged successfully from ace.
+
+   We then modelled these positive/negative outcomes using a ``lasso'' logistic regression model, fitting one model for each text feature individually. The ``lasso'' form of the model enforces constraints that severely limit the number of features the model can use to make predictions. The aim was to produce a sparse group (small number) from the 500 most common words that are most predictive of hospitalisation/successful treatment, along with coefficient values that indicate the effect of this relationship (e.g. to increase/decrease the risks of hospitalisation).
+
+  The performance of the regression models was evaluated using a cross validation strategy that split the data into 3 folds. A range of heavy regularisation parameters was explored to identify better performing models from those that use a sparse range of features (< 15), optimising for F1 score. The outcome labels were weighted (as in the experiments in \Cref{ch:classification-modelling}) to address the imbalance of positive / negative examples.
+
+   \section{Results}\label{sec:results}
+
+   \subsection{Visual Analysis}
+
+   Visual analysis of the TF-IDF values can be seen in \Cref{fig:tf-idf-scores}. The distributions of TF-IDF values indicate clear differences in the importance of different tokens between patients that were referred to hospital and those that weren't. These results are, however, noisy:
+
+   \begin{itemize}
+       \item the standard errors for each value are large, particularly those taken from patients hospitalised, suggesting significant differences in the composition of notes
+       \item Many words / tokens appear prominently in both the notes of hospitalised and discharged patients, some of which don't follow intuition i.e. mentions of ``good'' in the examination notes of patients that were hospitalised as well as those that weren't
+   \end{itemize}
+
+   As such it is hard to establish the presence of tokens that strongly differentiate between the notes of patients that did or didn't need hospital treatment from these analyses.
+
+   \subsection{Regression Analysis}\label{subsec:regression-analysis}
+
+   The results of the regression analysis draws a cleaner distinction between the most prominent tokens in the notes of patients that required hospital treatment. \Cref{fig:text-coefficients} displays the tokens and coefficient values used by each of the individual logistic regression models. Remarkably, the models for medical history and examination summary use only one word token out of 500 - ``asthma'' and ``salbutamol'' respectively - to predict hospitalisation outcomes.
+
+   \begin{figure}[H]
+       \centering
+       \includegraphics[width=1\textwidth]{text-coefficients}
+       \caption[Coefficients for TF-IDF score logistic regression models]{Coefficient values from the lasso logistic regression models trained on the TF-IDF scores from the individual text features. Positive values indicate that the associated word is predictive of a greater risk of hospitalisation. Conversely, negative values indicate that a word is predictive of lower risk of hospitalisation}
+       \label{fig:text-coefficients}
+   \end{figure}
+
+   The cross-validation scores of the regression models can be seen in \Cref{fig:text-clf-scores}. Performance varies significantly between the different models and the different folds of the cross validation. The examination summary model achieves a better F1 score (F1 = 0.339, ROC=0.604) than any of the other models seen thus far, and remains accurate (accuracy = 0.751). The medical history model is accurate (accuracy = 0.736) but achieves a disappointing cross validation F1 score (F1 = 0.185, ROC=0.539), and the F1 score shows very high variance (F1 variance = 0.131) suggesting these results are very unstable, and that this model performs much better on certain samples of the data and much worse on others. The recommendation model shows poor results that barely deviate from chance allocation of labels, despite using the most features (accuracy = 0.659, F1 = 0.118, ROC = 0.454).
+
+   \begin{figure}[H]
+       \scriptsize
+       \centering
+       \renewcommand{\arraystretch}{1.4}
+       \begin{tabular}{P{30mm} P{17mm} P{17mm} P{17mm} P{17mm} P{17mm} }
+           \toprule
+           & \textbf{F$_1$} & \textbf{AUC} & \textbf{Accuracy} & \textbf{Recall} & \textbf{Precision} \\\toprule
+           \textbf{Medical History}     & 0.18 (0.13) & 0.54 (0.03) & 0.75 (0.06) & 0.22 (0.16) & 0.16 (0.11) \\
+           \textbf{Examination Summary} & 0.34 (0.01) & 0.6 (0.01) & 0.74 (0.03) & 0.41 (0.03) & 0.29 (0.03) \\
+           \textbf{Recommendation}       & 0.12 (0.04) & 0.45 (0.02) & 0.66 (0.07) & 0.15 (0.07) & 0.1 (0.02) \\\toprule
+       \end{tabular}
+       \caption[Cross-validation of TF-IDF logistic regression models]{Cross validation scores for the TF-IDF logistic regression classifiers for each of the text features. Figures in brackets are the standard deviations of the respective figures}
+       \label{fig:text-clf-scores}
+   \end{figure}
+
+   \subsection{Reproducing results}\label{subsec:reproducing-results-text}
+
+   Supporting scripts to reproduce these results can be found in \textbf{\textit{models/text\_analysis.ipynb}} in the the project repo.
+
+   \section{Conclusions}\label{sec:conclusions2}
+
+   This analysis indicates that mentions of ``asthma'' and ``salbutamol'' in a patient's medical history and examination summary respectively are potential indicators of hospitalisation risk. Models trained using only the TF-IDF scores relating to these words were able to achieve a prediction accuracy comparable to, and sometimes better than, models that use the rest of the ACE dataset. It is possible that a history of asthma, or recent treatment with salbutamol may be indicative of a greater risk of hospitalisation during ACE treatment. This is certainly a hypothesis worth exploring further.
+
+   However, results should be considered with caution for the following reasons:
+
+   \begin{itemize}
+       \item \textbf{Instability}: The high standard errors in the TF-IDF word scores and similarly high variance in the performance of the regression models indicate that these results are highly unstable. Indeed, different samples of the training data, and different parameterisations of the text processing and modelling stages result in significant shifts in the observed results. The primary findings - the strength of ``asthma'' and ``salbutamol'' as predictors - generally remain robust to such changes, but the data analysis and model classification scores and other coefficient values shift significantly. Many other promising predictors were identified in earlier experiments, to be later eliminated from consideration as a result of this instability.
+       \item \textbf{Context}: These analyses considered words and word pairings in isolation. A significant amount of context is lost when isolating individual elements of text in this way. Take for example the simple case of negation: the TF-IDF score of the word ``asthma'' in a patients medical history will be identical  in the sentences ``patient has a history of asthma'' and ``patient has no history of asthma'' despite their opposite meaning. Many other variations in the contexts that words appear aren't captured by these analyses. This lack of context as a factor in this analysis may have a significant effect on the observed results.
+   \end{itemize}

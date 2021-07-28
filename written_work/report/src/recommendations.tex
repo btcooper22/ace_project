@@ -1,0 +1,44 @@
+%! Author = samrelins
+%! Date = 08/04/2021
+
+\section{The ACE Service}
+
+\subsection{Referral Process}
+
+The findings of this report indicate that the ACE team are making good use of their referral data when deciding a potential patient's suitability for treatment at home. The bayesian analysis does highlight some of the referral observations, those in Figure \ref{fig}, as indicative of an increased or decreased risk of hospitalisation. Despite this, the best performing predictive models are unable to accurately and reliably identify patients that require hospital treatment from the referral data - as such, no significant changes to the referral criteria and heuristics used by the ACE team can be recommended. The ACE team might consider the highlighted features when making future referral decisions, remaining aware that their effect of their presence is to \textit{reduce the certainty} that a patient will be successfully discharged from ACE - they are not reliable predictors of hospitalisation.
+
+The success of the text features as predictors, the mention of the word "asthma" in patient medical histories and "salbutamol" in examination summaries, suggest that they are useful indicators of hospitalisation. It would be helpful to future analyses were the ACE team to explicitly capture this information on referral. For example, additional ``suspected asthmatic - yes/no'' and ``salbutamol administered - yes/no'' might be added as new fields in the ACE referral form. The specific descriptions of these new features (e.g. ``suspected asthmatic'' / ``confirmed asthmatic'' / ``salbutamol given last 12 hrs'' / ``salbutamol given during consultation'') should be determined by the ACE team, based on their clinical understanding/intuitions of the interaction between these concepts and the downstream risk of hospitalisation.
+
+\subsection{Data Collection}
+
+The current number of training examples in the referral data, and particularly those examples that required hospital treatment, is very low for the purposes of the machine learning task being studied. The ACE team might consider any means that might increase the number of labelled referral examples. This may be collecting new examples that weren't treated by ACE, or adjusting current data-generating practices to increase the number of examples in the ACE referral data that can be used in modelling.
+
+A good example would be the referrals ACE reject. These cases would be extremely useful to this study, as presently the data only provide examples of patients that ACE are confident will be discharged successfully. Including rejected referrals in the dataset would remove the current selection bias (only patients accepted for ACE treatment in the data) and would (presumably) significantly increase the number of positive examples, those that require hospital referral. The ACE team would need to begin collecting full observations for \textit{all} patients that are referred to ACE and meet the minimum criteria to be considered for referral (i.e. correct age and referral time). The patients referred to hospital would then require labelling after treatment - identifying with hindsight those patients that were correctly referred to hospital, and those patients that could have been safely treated at home. This should be relatively simple for the ACE team to facilitate, given that the same service is responsible for both ACE and the treatment of patients referred to hospital.
+
+Additional paediatric urgent care cases treated by the Bradford Children's Clinical Decision Area (CCDA) might also be a source of extra data. Many GP surgeries do not make use of the ACE service, and are likely to be referring many patients to hospital that would be suitable for treatment at home. If available for these cases, the observations that make up the referral criteria could be obtained from records of the initial visit to the GP surgery, and the outcomes that indicate suitability for home treatment could be obtained from records kept by the CCDA. These ``pseudo-referrals'' would be an important addition to the training data for a predictive model.
+
+Of course, the above data generation processes should be conducted under the supervision of the Data Scientist conducting the predictive modelling. Care should be taken to ensure that the input observations and the output labels are appropriately representative of ``real'' referrals and outcomes in the ACE service. Paticular care sould be taken to ensure new examples are labeled using appropriate criteria that indicate successful home treatment.
+
+\section{Future Work}
+
+\subsection{Primary Care Data}
+
+The results of the text analyses and modelling demonstrate that additional features, observations that aren't currently recorded in the ACE referral data, show great potential to improve outcome predictions. Despite their success as predictors, the text features tested in this study are not robust. Reference to, or the absence of, a medical condition in a free-text medical history is not a definitive indicator that a patient does or doesn't suffer from that condition. Fortunately, permission has been granted to link the ACE dataset with primary care records - a complete treatment record for each patient in the ACE dataset. The primary care data will provide the means to test robust features, such as those highlighted in the text analysis, that aren't currently captured in the structured referral data. This analysis should be the primary focus of the next stage of this project.
+
+\subsection{Causal Inference}
+
+Informal discussion with ACE clinicians has unearthed a number of potential biases in the ACE data that should be explored further. Most obvious are considerations that might affect the triage of ACE patients that aren't captured in the referral data. The potential treatment pathways that lead a prospective patient to ACE referral are also of interest - the assessment and treatment of a patient referred from the Bradford Royal Infirmary Emergency Department will likely differ significantly from a patient referred from a community GP surgery, and these differences are unlikely to be charachterised by the features in the referral data.
+
+lots of potential bias in data - selection bias resulting from only patients accepted for ace treatment - different pathways to referral GP / ED / CCDA - presence of ACE service introduces its own bias
+
+\subsection{New Dataset}
+
+actually predicting factors that contribute to hospitalisation best done with new dataset - decide on set of clinical criteria that indicate a patient is suitable for ACE treatment - label patients referred to hopspital based on those criteria - predict
+
+\section{General Learnings}
+
+cut and paste assumptions for ML applications:
+no awareness of:
+* amount of data required to train reliable ML model
+* potential biases of training a model using only accepted referrals
+*

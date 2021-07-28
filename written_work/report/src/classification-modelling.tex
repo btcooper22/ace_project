@@ -1,0 +1,186 @@
+\section{Task Description}\label{sec:task-description}
+
+The ACE team hypothesise that the referral data they collect can be used to predict treatment outcomes. Defining this as a machine learning problem, they suspect a relationship exists between the input variables - the referral data, $X$ - and the outcome variable - discharge with / without the need for hospital treatment, $y$. This relationship can be formalised as:
+
+\begin{equation}
+    y = f(X) + \epsilon\label{eq:equation}
+\end{equation}
+
+where $y$ is an unknown function of the input variables and $\epsilon$ is a random error term (independent of  with mean zero). Defining the problem in this way, the aim of this experiment is to approximate $f$, and subsequently make predictions of $y$ of the form:
+
+\begin{equation}
+    \hat{y} = \hat{f}(x)
+\end{equation}
+
+where $\hat{y}$ and $\hat{f}$ are approximations of the true underlying $y$ and $f$. This process can be thought of more generally as training a predictive model \cite{islr}.
+
+The accuracy of such a predictive model depends on two terms, the reducible and irreducible error. The reducible error is the degree to which $\hat{f}(X)$ accurately approximates $f(X)$ - the more accurate the representation, the lower the reducible error. The irreducible error is the $\epsilon$ term - this is independent of $X$ and can be thought of as the unavoidable error - the factors that affect outcomes and that aren't captured in the data. In testing our hypothesis we hope to establish:
+
+\begin{enumerate}
+    \item the degree to which the referral data is able to explain the outcome - the relative sizes of $f(X)$ and $\epsilon$ as proportions of $y$
+    \item how accurately we might approximate $f$
+\end{enumerate}
+
+No ``one-size-fits-all'' predictive model exists. The modern machine learning toolkit includes vast number of approaches to classification modelling - each has it's own prior assumptions of the form that $\hat{f}$ takes, and thus each has it's own associated benefits and drawbacks. This experiment will test a range of these approaches, with the expectation that one amongst these techniques will establish a reasonable baseline for $\hat{f}$ that minimises the reducible error as much as possible. Unfortunately, the complexity of these modelling techniques and their variety renders their discussion in this report impractical, though the general intuition established above and the following discussion is sufficient to understand the results.
+
+\subsection{Encoding Non Numeric Data}\label{subsec:encoding-non-numeric-data}
+
+Machine learning models require data to be represented numerically. This is an issue when considering categorical data, such as the ``referral from'' or ``allergy'' features in the ACE dataset. There are a number of approaches that represent categorical data numerically \cite{catenc1} \cite{catenc2}, some of which cannot be used in this setting given the small size of the dataset. The following approaches will be used in this experiment:
+
+\begin{itemize}
+    \item \textbf{One-hot encoding}: Each categorical feature is split into its respective categories, each with a simple 1/0 or ``on''/``off'' value. For example, the following data:
+
+    \begin{table}[H]
+        \centering
+        \begin{tabular}[h]{ P{17mm} P{20mm} }
+            \toprule
+            \textbf{Patient} & \textbf{Referral Time} \\
+            \toprule
+            \textbf 1 & Morning \\
+            \textbf 2 & Afternoon \\
+            \textbf 3 & Morning \\
+            \textbf 4 & Evening \\
+            \toprule
+        \end{tabular}\label{tab:ohetab1}
+    \end{table}
+
+    would be one-hot encoded as:
+
+    \begin{table}[H]
+        \centering
+        \begin{tabular}[h]{P{17mm} P{20mm} P{20mm} P{20mm} }
+            \toprule
+            \textbf{Patient} & \textbf{Referral Time Morning} & \textbf{Referral Time Morning} & \textbf{Referral Time Morning} \\
+            \toprule
+            \textbf 1 & 1 & 0 & 0 \\
+            \textbf 2 & 0 & 1 & 0 \\
+            \textbf 3 & 1 & 0 & 0 \\
+            \textbf 4 & 0 & 0 & 1 \\
+            \toprule
+        \end{tabular}\label{tab:ohetab2}
+    \end{table}
+
+    \item \textbf{Target encoding}: Each category is given a numerical value based on the proportion of target variable it represents, in this case the proportion of patients that require hospital treatment. For example, if 15\% of patients referred in the evening require hospital treatment, the ``evening'' category is replaced by the figure 0.15. Care must be taken to avoid ``leakage'' when using this approach - that is, encodings should not be calculated using the label for the example in question, or from the labels of examples that will be used to evaluate model performance.
+\end{itemize}
+
+The free-text fields, such as ``medical history`` and ``examination summary'' present a greater challenge, and will therefore be excluded from this experiment. Further analysis and modelling of these text features can be found in \Cref{ch:free-text-analysis}.
+
+\subsection{Balancing Target Labels}\label{subsec:balancing-target-labels}
+
+As discussed in \Cref{ch:the-data}, examples of children that required hospital treatment are far fewer in number than those successfully treated by ACE. This presents a significant challenge when attempting to train a classification model to accurately predict the probability of a hospital referral \cite{imbalanced_strategies}. For example, models trained on imbalanced data can achieve relatively high prediction accuracy by predicting the majority label only - so, any model that predicts every patient will be treated successfully by ACE will be approximately 86\% accurate. Optimising for prediction accuracy alone is likely to result in many such models.
+
+To mitigate these issues, the following data preparation techniques will be tested, each of which attempts to address the imbalance of labels in the dataset:
+
+\begin{itemize}
+    \item \textbf{Weighted labels}: Models are ``punished'' during training for making incorrect predictions. This penalty can be weighted depending on the label, so a model can be more heavily ``punished'' for making incorrect predictions of the minority label. The size of weighting is usually determined by the proportion of majority/minority labels in the dataset - so a label that is five times less common than another is weighted five times more heavily. Note: Label weighting is only available in modelling techniques that use certain optimisation approaches, and thus is not available for some of the modelling techniques tested in thie experiment.
+    \item \textbf{Synthetic Minority Oversampling Technique (SMOTE)}: SMOTE \cite{smote} generates new synthetic examples of the minority label to balance the proportion of labels in the dataset. New samples are generated by selecting a random minority example, and a small number of ``neighbours'' for that example - other examples that are the most similar to the selected example. One of the neighbours is then randomly chosen, and a synthetic data point is sampled by interpolating between the random example and the selected neighbour. This process is repeated until the number of examples of each label match.
+    \item \textbf{Undersampling}: Similar in spirit to oversampling, undersampling is the removal of examples from the majority label until the number of examples with each label match. There are many approaches to systematically select examples to remove - in this experiment random undersampling will be used.
+\end{itemize}
+
+\subsection{Evaluating Models}\label{subsec:evaluating-models}
+
+An imbalance of labels also makes model evaluation more challenging. Simple accuracy is not an effective measure of performance if the proportion of labels is skewed heavily in one direction. Given this, it is important to use metrics that measure the proportion of the imbalanced labels that are correctly classified:
+
+\begin{itemize}
+    \item \textbf{Precision}: This is the proportion of examples that are classified correctly, among those that are predicted to have a positive outcome - in terms of the ACE task, this is the proportion of patients that actually require hospital treatment, out of those predicted to need hospital treatment
+    \item \textbf{Recall}: This is the proportion of positive examples that are classified correctly (ignoring every negative example) - in terms of the ACE task, this is the proportion of the children that need hospital treatment that are correctly identified.
+    \item \textbf{F1 Score}: F1 is a combination of precision and recall. F1 calculates the harmonic mean between the precision and recall, offering a balance between these metrics:
+    \begin{equation}
+        F_1 = \frac{2*precision * recall} {precision + recall}
+        \label{eq:F1}
+    \end{equation}
+    In isolation, one can achieve a perfect precision score by predicting one positive example correctly and all the others negative, or a perfect recall score by simply predicting every example as positive - F1 avoids this by evaluating the two metrics together. As F1 is a harmonic mean of two proportions, it also takes on values between 0 and 1 and can be easily interpreted like precision and recall.
+    \item \textbf{AUC/ROC}: This is a this represents the degree of ``seperability'' of the model predictions based on the true labels - it measures the degree to which a model is capable of separating between the two labels correctly. The theory is too complex to discuss here, but an interpretation of the metric can be easily explained. Perfect seperability will achieve an AUC of 1. 0.5 indicates no separation or that a model is choosing randomly. Values below 0.5 indicate that the model is skewed toward making incorrect decisions. Values closer to zero are rarely seen, given that one could simply flip the predictions to achieve an accurate model, but occasionally models will stray slightly below 0.5 - these results should be interpreted in much the same way as those at 0.5 or slightly above.
+\end{itemize}
+
+\section{Experimental set-up}\label{sec:experimental-set-up}
+
+\subsection{General set-up}\label{subsec:general-set-up}
+Predictive models were trained (with the help of the popular Scikit-Learn\cite{scikit-learn}, and Imblearn \cite{imblearn} Python packages) using a combination of each of the following modelling techniques, and approaches to categorical encoding and label balancing:
+
+\begin{figure}[H]
+    \centering
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Predictive Modelling Technique*} & Logistic Regression \\
+        & Support Vector Machines         \\
+        & K-Nearest Neighbours            \\
+        & Random Forest Classifier        \\
+        & Gradient Boosted Decision Trees \\
+        & Ada-Boost Classifier            \\
+        & Gaussian Naive Bayes Classifier \\
+        & Quadratic Discriminant Analysis \\
+        \midrule
+        \textbf{Categorical Encoding Technique} & One-Hot Encoding \\
+        & Mean Target Encoding \\
+        \midrule
+        \textbf{Label Balancing Technique} & Balanced (Weighted) Labels \\
+        & SMOTE \\
+        & Random Undersampling \\
+        \toprule
+    \end{tabular}
+\end{figure}
+
+\textit{*Amongst these models, a wide variety of hyperparameters specific to each technique were tested. These are too numerous to detail here, but details can be seen in \linebreak\textbf{models/sklearn\_models.py} from the project repo}
+
+A grid search method was used to test each combination of model, hyperparameters, categorical encoding approach, and label balancing approach. Models were scored using a 3-fold cross validation method, given that dividing the training data any further would result in too few positive examples in each validation fold. Variability of outcomes was a significan issue in early experimentation - to establish a reliable estimate of the variance of cross validation results, the training data was shuffled and the 3-fold cross validation scoring was repeated 10 times.
+
+The models, hyperparameters and data preparation methods that performed best in cross validation were then tested against the holdout test set, to estimate how well the cross-validation scores represent the prediction scores for data that wasn't used during training, and how well the models generalise. Only the best performing models in cross validation were scored against the holdout test set, to minimise the risk of biasing the results to those that perform best against the test set.
+
+\subsection{Precautions}\label{subsec:precautions}
+Particular care was taken to write a custom cross validation loop that accounted for the following complexities of this experiment:
+
+\begin{itemize}
+    \item Synthetic samples were added to the training folds only - care was taken to ensure models were validated against genuine training examples only, without any added synthetic data
+    \item Target encoding was calculated using a ``leave-one-out'' method from the training folds only to avoid ``data leakage'' - no holdout validation examples were used to calculate target encodings
+    \item Target/one-hot encoding was completed after generating synthetic examples - otherwise the SMOTE algorithm would treat the encoded categories as numeric, and interpolates between them creating erroneous ``sub-categories''
+    \item The random fold samples were kept identical when training each individual model and configuration to ensure an unbiased comparison of each model
+\end{itemize}
+
+\section{Results}
+
+Results cross validation results from each of the classification models can be seen in \Cref{tab:cv-results} and the test set results of the best performing models can be seen in \Cref{fig:test-results}. None of the classification models are able to make useful predictions of hospital outcomes from the ACE data during cross validation or against the holdout test set. Those models that achieve good overall accuracy (\textgreater 70\%) do so at the expense of identifying patients that required hospital treatment - recall (\textless 30\%) and precision (\textless 25\%). Conversely, models that are able to identify greater numbers of patients that require hospital treatment, do so at the expense of overall accuracy. None of the models achieve an F1 score above 0.3 or an AUC above 0.55, indicating the low degree to which the models are able to separate patients that were successfully treated by ACE from those that required hospital referral.
+
+\begin{figure}[H]
+    \renewcommand\arraystretch{1.5}
+    \scriptsize
+    \centering
+    \begin{tabular}{P{13mm} P{16mm} P{7mm} P{7mm} P{7mm} P{7mm} P{7mm} P{7mm} P{7mm} P{7mm} P{7mm} }
+        \toprule
+        & & \textbf{F1} & \textbf{AUC} & \textbf{Acc} & \textbf{Rec} & \textbf{Prec} & \textbf{True +ve} & \textbf{True -ve} & \textbf{False +ve} & \textbf{False -ve} \\\toprule
+        \textbf{SMOTE}    & \textbf{Logistic Regression} & 0.158       & 0.452        & 0.605             & 0.222           & 0.122              & 6                  & 92                 & 43                  & 21                  \\
+        \textbf{}         & \textbf{Random Forest}       & 0.067       & 0.422        & 0.654             & 0.074           & 0.061              & 2                  & 104                & 31                  & 25                  \\\midrule
+        \textbf{Balanced} & \textbf{Logistic Regression} & 0.244       & 0.519        & 0.617             & 0.37            & 0.182              & 10                 & 90                 & 45                  & 17                  \\
+        \textbf{}         & \textbf{Random Forest}       & 0.208       & 0.533        & 0.765             & 0.185           & 0.238              & 5                  & 119                & 16                  & 22 \\\toprule
+    \end{tabular}
+    \caption[Test set results for classification models]{Test set scores for the best performing classification models as determined by the cross validation scores}
+    \label{fig:test-results}
+\end{figure}
+
+The observed standard deviations between the cross validation folds also indicate that model's predictions vary significantly depending on the data they see during training. This indicates that the decisions, or heuristics, of the classification models are not robust to small changes in the training dataset. These results support the issues discussed in \Cref{sec:data-summary} - there are very few examples that exhibit the features that are most indicative of hospitalisation risk, and model results vary dramatically depending on the inclusion/exclusion of these examples during training.
+
+Visualising the model predictions further emphasises the poor performance of the classification models. \Crefrange{fig:balanced-preds}{fig:smote-preds} show plots of the test set predictions from the best performing models. The distributions of predictions barely differ between patients that were successfully discharged from ACE and patients that were referred to hospital. The logistic regression model also lacks confidence in its predictions - the vast majority of the predictions made fall within the mid range of probabilities, indicating that the model will rarely deviate from an approximate 40-60\% chance of hospitalisation.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{balanced-model-preds}
+    \caption[Plots of test set predictions for weighted label models]{Combination scatter/violin/box plots of the test set predictions from the best performing models trained using weighted labels. Note: the scattered points have been ``jittered'' - randomly displaced along the x axis to make visualisation easier - thus the x axis position has no meaning.}
+    \label{fig:balanced-preds}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{smote-model-preds}
+    \caption[Plots of test set predictions for SMOTE models]{Combination scatter/violin/box plots of the test set predictions from the best performing models trained using SMOTE training data. Scatter points are ``jittered'' as in \Cref{fig:balanced-preds}}
+    \label{fig:smote-preds}
+\end{figure}
+\subsection{Reproducing results}\label{subsec:reproducing-results-classification}
+
+Code to reproduce these results can be found in \textbf{\textit{models/sklearn\_models.py}} and \linebreak \textbf{\textit{models/plot\_predictions.ipynb}} from the project repository
+
+\section{Conclusions}\label{sec:conclusions}
+
+A broad range of data preparation methods and modelling techniques were used in this experiment. It is reasonable, therefore, to assume that we have established a good baseline for $\hat{f}$, our approximation of the true relationship between the referral data and hospitalisation outcomes.  As we were unable to generate anything approximating accurate predictions of hospitalisation, we can reasonably reject the initial hypothesis of the ACE team - it is not possible to predict treatment outcomes using the referral data they have provided. The irreducible error presented by this problem appears to be such that little can be determined about the outcomes from the input data. (It should be noted that the experiments thus far have excluded the free-text features, which are analysed in \Cref{ch:free-text-analysis}).
+
+These results are unsurprising when considered in the context of the findings of the initial data analysis. The lack of obvious predictors of hospitalisation found in the data analysis is reflected by the poor prediction performance of the models trained using the dataset. It bears repeating that the absence of predictors in the dataset serves to affirm the referral decisions made by the ACE team, given that the dataset comprises only patients that were accepted for treatment within ace. If instead we had trained extremely accurate classification models, this would indicate the presence of obvious indicators of hospitalisation in the referral data that ACE clinicians were oblivious to.

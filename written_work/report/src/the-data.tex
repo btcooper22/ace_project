@@ -1,0 +1,133 @@
+The data consist of the referral records of 502 patients treated by ACE for viral wheeze/asthma between December 2017 (when the service began), to March 2020 (when the service was suspended as a result of the Covid-19 pandemic).
+Examples are labeled with one of two possible treatment outcomes - discharged without referral to hospital (421 examples or 83.9\% of the data) or later referred to hospital (81 examples or 16.1\% of the data).
+Each individual record details referral information, data from the proceeding telephone/in-person consultations, and general performance metrics collected by the service.
+For the purposes of this study, only the data collected at the referral stage is used, given the aim to model the risk of hospitalisation upon referral; these variables are described in \Cref{tab:feature-descriptions} below:
+
+\begin{longtable}[h]{ P{40mm}  P{45mm} P{45mm} }
+    \toprule
+    \textbf{Feature} & \textbf{Description} & \textbf{Possible Values} \\
+    \toprule
+    \endhead
+    \textbf{Referral From} & Place from where patient is referred & GP / A\&E / ED (emergency department) / CCDA (children's clinical decision area) Includes optional ANP / paed ANP (Advanced Nurse Practitioner)
+    \\\midrule
+    \textbf{Referee's Profession} & Profession of clinician making the referral & Consultant / Doctor / ANP (Advanced Nurse Practitioner) / Registrar \\\midrule
+    \textbf{Age} & Age of patient in whole years & 1-16 \\\midrule
+    \textbf{Address} & Postcode are from patient's address & BD01 / BD02 etc. \\\midrule
+    \textbf{Ethnicity} & Patient's ethnicity & free-text, not limited to pre-determined options\\\midrule
+    \textbf{Gender} & Patient biological sex & Male / Female \\\midrule
+    \textbf{Allergy} & Allergy information for patient & One or many of NKA (no known allergy) / NKDA (no known drug allergy - distinction between NKA not clear) / Food / Drug / Other \\\midrule
+    \textbf{Date of Referral} & Time of year of referral & Spring / Summer / Autumn / Winter\\\midrule
+    \textbf{Time of Referral} & Time of day of referral & Morning / Afternoon / Evening \\\midrule
+    \textbf{Severity of Illness} & Referring clinicians opinion on the severity of child's illness & Mild / Moderate \\\midrule
+    \textbf{Activity Level of Child} & How active / energetic the child is (opinion of parent) & Usual / Lower \\\midrule
+    \textbf{``Gut Feeling'' of Referrer} & The referrer's ``gut feeling'' on the condition of the patient & Well / Low Concern / Unwell\\\midrule
+    \textbf{Oxygen Saturations} & The oxygen saturations in air of patient & Percentage Value \\\midrule
+    \textbf{Respiratory Rate} & Number of breaths taken per minute & Integer \\\midrule
+    \textbf{Heart Rate} & Heart rate in beats per minute & Integer \\\midrule
+    \textbf{Temperature} & Body temperature in degrees centigrade & Float / Non-negative Real Number \\\midrule
+    \textbf{Sepsis Red Flags} & Any indications of sepsis that are of concern & None Noted / Low Level \\\midrule
+    \textbf{Safeguarding Issues} & Any safety concerns about the patient's home environment & Yes / No\\\midrule
+    \textbf{Medical History} & Short description of the patient's related medical history & Free text ~50-100 words \\\midrule
+    \textbf{Medical History} & Short description of the patient's related medical history & Free text ~50-100 words \\\midrule
+    \textbf{Examination Summary} & Short summary of the examination conducted by the referring clinician & Free text ~50-100 words \\\midrule
+    \textbf{recommendation} & Treatment recommendations for patient / patient / guardian to follow prior to contact from ACE & Free text ~50-100 words \\\toprule
+    \caption{Names and descriptions of the observations or features of the ACE dataset}
+    \label{tab:feature-descriptions}
+\end{longtable}
+
+\section{Data Cleaning / Preprocessing}\label{sec:data-cleaning-/-preprocessing}
+
+The dataset as provided by the ACE team is remarkably clean and required little preprocessing.
+A number of features were omitted from the referral data as they are largely incomplete (e.g.\ blood pressure, body weight) leaving those described in  \Cref{tab:feature-descriptions}.
+A minority of the remaining features have missing values that were filled or removed using rules detailed in \Cref{tab:missing-values}.
+
+\begin{table}[H]
+    \centering
+    \renewcommand\arraystretch{1.7}
+    \begin{tabular}[h]{ P{30mm} P{110mm} }
+        \toprule
+        \textbf{Missing Observations Per Example} & \textbf{Rule:} \\
+        \toprule
+        \textbf{2 or more} & Examples removed from the dataset entirely - only 14 such examples, all of which are from overrepresented group that were successfully treated by ace, so removing has little impact \\
+        \textbf{1} & Missing observations inferred from rest of examples based on outcome i.e. observations from example that required hospital treatment taken from the group that required hospital treatment.
+        Median values used for numerical features, majority (mode) category used for categorical features \\
+        \toprule
+    \end{tabular}
+    \caption{Strategies for filling missing observations from dataset.}
+    \label{tab:missing-values}
+\end{table}
+
+A small number of features were also subject to simple preprocessing to make their interpretation easier, detailed in \Cref{tab:feature-preprocessing}.
+
+\begin{table}[H]
+    \centering
+    \renewcommand\arraystretch{1.7}
+    \begin{tabular}[h]{ P{30mm} P{110mm} }
+        \toprule
+        \textbf{Feautre:} & \textbf{Preprocessing details:} \\
+        \toprule
+        \textbf{Referral From} & Observations include ``A\&E'' and ``ED'' (emergency department) which are synonyms - both merged to ``ED''. Entries mention ``ANP'' (advanced nurse practitioner) or ``paed ANP'' - this information is duplicated in ``referral profession'' feature so is removed. Resulting categories are simply ``ED'' / ``GP'' / ``CCDA'' (children's clinical decision area) \\
+        \textbf{Allergies} & Allergies can be one, or a combination of, ``food'' / ``drug'' / ``other'' - better represented as three separate categorical features ``food allergy'' / ``drug allergy'' / ``other allergy'' with ``Y'' / ``N'' categories - ``NKA'' (no known allergy) and ``NKDA'' (no known drug allergy) observations are implied given ``N'' in each of the new allergy features \\
+        \textbf{Ethnicity} & Vast and diverse array of ethnicity descriptions - too diverse for meaningful analysis. Ethnicities are grouped into 3 categories ``European'' / ``Asian'' / ``Other'' - unclear or mixed ethnicities default to ``Other'' \\
+        \toprule
+    \end{tabular}
+    \caption{Pre-processing steps performed on selected datset features}
+    \label{tab:feature-preprocessing}
+\end{table}
+
+Prior to any analysis or modelling, the data were divided into a training dataset and holdout test-set.
+This is a standard approach to ensure the results of this study are not biased too heavily towards observations from the dataset, and that the findings generalise well to unseen data.
+Given the size of the dataset and the scarcity of positively labeled examples, a stratified split of 2/3 training data 1/3 holdout test data was used.
+Any observations or results discussed from this point are taken from the training data only, unless otherwise specified.
+
+
+\section{Data summary}\label{sec:data-summary}
+
+We focussed our initial analysis on a comparison between the patients that were successfully discharged from ACE and those that were admitted to hospital. Results of these analyses can be seen in \Cref{sec:app-the-data}. The results show that there isn't a clear distinction between patients that required hospital treatment and those that didn't. Very few of the features, in isolation, show an obvious difference in their distribution between the two groups - statistical significance tests suggest that only ``Referral Time'' (p-value 0.032), ``Gut Feeling of Referrer'' (p-value 0.052) and ``Oxygen Saturation'' (p-value 0.002) have a statistically significant relationship to hospitalisation rates.
+
+It should be noted that a 5\% significance test is a high burden to place on data of this type. The ACE dataset is comprised of all available referral data, rather than experimental output or a carefully designed cohort study, which are more typical use-cases for these significance tests. As such, ``Referral From'' (p-value 0.17) and ``Age'' (p-value 0.14) also show signs of correlating with referrals to hospital, though the relationship is much weaker than the other features highlighted.
+
+Among the features that do correlate strongly with hospitalisation, are further considerations that diminish their potential as predictors. All of the features that show particularly high/low proportions of hospitalisations among their categories are supported by only a small fraction of the observations. This effect is visualised in Figure 6. Problems may arise from models that rely heavily on these features in making predictions:
+
+\begin{enumerate}
+    \item The tiny fraction observations that underly these particularly high/low hospitalisation proportions suggest these figures will vary significantly if the data is resampled or new observations are added. The predictions and composition of models that rely on these features are likely to be similarly variant/unstable as a result.
+    \item The small fraction of the examples that fall into these categories suggest they are relatively uncommon and so will have minimal impact, considering the majority of predictions will relate to other categories.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{referral-time}
+    \caption[Visualisation of the ``referral time'' feature]{Visualisation of the ``referral time'' feature. The proportion of outcomes for each time is shown on the left, and the individual counts for each group are shown on the right. Particular attention should be paid to the proportions of patients hospitalised that are referred in the evening and the relative numbers of observations that make up this category - the bars on the right-hand side of each plot.}
+    \label{fig:referral-time}
+\end{figure}
+
+\section{Interaction Effects and Feature Engineering}\label{sec:interaction-effects-and-feature-engineering}
+
+The analyses thus far consider each of the features in isolation. We expect that the features also interact with one another to influence outcomes. We know, for example, that age and heart rate are features that interact; resting heart rate in children decreases with age, and so an unusually high heart rate for a 10 year-old may be perfectly ordinary for a baby. The permutations of potential interaction effects extend into the hundreds, when considering only pairs of the features in the ACE dataset. Given this, domain expertise is particularly useful in highlighting related features that may interact to affect the outcome. Such domain-specific knowledge was leveraged to design new features from the ACE dataset:
+
+\begin{itemize}
+    \item The ACE referral criteria for the wheeze/asthma pathway (\Cref{fig:ace-pathway}) define reasonable ranges for heart and respiratory rates broken into age groupings. New features were engineered that represent the ACE referral criteria, for example ``low''/ ``normal''/``high'' categories for heart and respiratory rates.
+    \item The Royal College of Nursing  publish Advanced Paediatric Life Support (APLS) guidelines \cite{rcn_apls}, which include definitions of normal heart and respiratory rate ranges divided into more granular age groupings than the ACE guidelines - these guidelines were also used to generate new features.
+\end{itemize}
+
+The engineered features were subjected to the same analyses as the simple categorical features. The results of these analyses reveal only weak relationships with hospitalisation, with low statistical significance (\Crefrange{tab:extra-feature-hosp-freqs}{tab:extra-feature-chi2}).
+
+\section{Discussion of Data Analysis}\label{sec:discussion-of-data-analysis}
+
+One might be tempted to say that the lack of strong predictors of hospitalisation seen throughout this analysis, particularly among the specific criteria ACE use to guide referrals, suggests flaws in the criteria ACE use to make referral decisions. It bears repeating, therefore, that \textbf{these data are taken from patients accepted for ACE treatment}. When considering that patients in the dataset were already deemed to be of sufficiently low hospitalisation risk to be admitted to ACE, based specifically on the features recorded therein, it is unsurprising that there are few strong predictors of hospitalisation to be found among those same features. Indeed, it is the relative success of ACE decision making that results in the lack of clear predictors of hospitalisation found in the dataset.
+
+These analyses do highlight key challenges when considering using the ACE data to model outcomes. The small fractions of the dataset that support certain feature categories (\Cref{fig:referral-time}) suggest that re-sampling the data will result in significant variance of the distribution of these categories between samples. This variance is likely to affect the robustness and generalisability of any models trained using the data. This should be considered carefully when interpreting the results of all experiments, and particular attention should be given to the variance of any figures reported (where available).
+
+\subsection{Reproducing Results}\label{subsec:reproducing-results2}
+Code to reproduce the results of these analyses can be found in \textbf{\textit{exploration/\newline-initial\_exploration.ipynb}}
+
+\section{Rejected Referrals}\label{sec:rejected-referrals}
+The ace team do collect data on the referrals they reject (88 examples). A significant proportion (approximately 50\%) of these referrals are rejected because they do not meet the following minimum requirements to be considered for treatment in the service:
+
+\begin{itemize}
+    \item Age \textless2 years old
+    \item Referral time after 16:00 - the service remains open until 20:00 and requires patients to have a minimum 4 hour observation period
+\end{itemize}
+Such referrals are not suitable for this study as the patients would never have been accepted for ACE treatment under any circumstances.
+
+Other referrals are rejected because the ACE team or referring clinician aren't satisfied they can be safely treated at home. Whilst such examples, appropriately labelled, would be an important addition to the dataset, unfortunately the vast majority (\textgreater 90\%) are missing a significant number of observations. Aside from the fact that these examples aren't labelled, the missing fields are such that these observations would not be useful even if a labelling scheme were devised.

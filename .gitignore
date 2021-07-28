@@ -8,7 +8,6 @@ exploration_files
 *.xlsx
 *.pyc
 presentations/
-written_work/
 .DS_Store
 pymc3_error.ipynb
 samples/

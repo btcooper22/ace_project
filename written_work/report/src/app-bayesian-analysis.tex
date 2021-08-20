@@ -1,0 +1,78 @@
+\renewcommand*{\arraystretch}{1.2}
+\scriptsize{
+    \begin{longtable}[H]{llll}
+        \toprule
+                                              & \textbf{ELPD} & \textbf{HPD Lower} & \textbf{HPD Higher} \\\toprule
+        \endhead
+        \textbf{Mentions Salbutamol}          & -143.704           & 0.336               & 1.630                \\
+        \textbf{Oxygen Saturation}                          & -145.465           & -4.220              & -0.442               \\
+        \textbf{Referral From GP}               & -146.071           & 0.058               & 1.368                \\
+        \textbf{Referral Profession Doctor}     & -146.380           & 0.031               & 1.252                \\
+        \textbf{Mentions Asthma}              & -146.393           & 0.014               & 1.337                \\
+        \textbf{Referral From CCDA}             & -146.648           & -2.605              & 0.002                \\
+        \textbf{Gut Feeling Well}               & -146.774           & -1.263              & 0.055                \\
+        \textbf{APLS Resp Rate High}      & -146.953           & -0.072              & 1.220                \\
+        \textbf{Illness Severity Moderate}      & -147.021           & -0.107              & 1.399                \\
+        \textbf{Activity Level Usual}           & -147.066           & -1.109              & 0.118                \\
+        \textbf{Food Allergy}                 & -147.433           & -0.235              & 1.383                \\
+        \textbf{APLS Heart Rate High}     & -147.442           & -0.252              & 1.454                \\
+        \textbf{Referral Date Winter}           & -147.451           & -0.176              & 1.048                \\
+        \textbf{APLS Resp Rate Normal}    & -147.456           & -1.100              & 0.195                \\
+        \textbf{Age Range Secondary}            & -147.483           & -0.369              & 1.971                \\
+        \textbf{Referral Date Spring}           & -147.483           & -1.633              & 0.233                \\
+        \textbf{Resp Rate}                       & -147.497           & -0.528              & 3.063                \\
+        \textbf{Temperature}                             & -147.512           & -0.702              & 3.216                \\
+        \textbf{Gut Feeling Low Concern}        & -147.520           & -0.194              & 1.066                \\
+        \textbf{Referral Time Evening}          & -147.527           & -0.436              & 2.193                \\
+        \textbf{Age Range Primary}              & -147.534           & -1.090              & 0.189                \\
+        \textbf{Referral Profession Consultant} & -147.586           & -2.281              & 0.329                \\
+        \textbf{APLS Heart Rate Normal}   & -147.644           & -1.364              & 0.320                \\
+        \textbf{Heart Rate}                      & -147.718           & -0.728              & 2.983                \\
+        \textbf{Gut Feeling Unwell}             & -147.735           & -0.245              & 5.856                \\
+        \textbf{Referral Profession ANP}        & -147.843           & -1.207              & 0.297                \\
+        \textbf{ACE Resp Rate High}       & -147.852           & -0.269              & 0.934                \\
+        \textbf{Referral From ED}               & -147.993           & -1.103              & 0.336                \\
+        \textbf{Group Ethnicity Other}          & -148.028           & -2.223              & 0.454                \\
+        \textbf{Referral Date Autumn}           & -148.058           & -0.989              & 0.329                \\
+        \textbf{ACE Resp Rate Normal}     & -148.074           & -0.847              & 0.346                \\
+        \textbf{Other Allergy}                & -148.233           & -0.651              & 1.197                \\
+        \textbf{Meets ACE Criteria}          & -148.250           & -0.806              & 0.394                \\
+        \textbf{Group Ethnicity Asian}          & -148.277           & -0.436              & 0.778                \\
+        \textbf{Age}                              & -148.277           & -0.904              & 1.718                \\
+        \textbf{Age Range Pre School}          & -148.284           & -0.420              & 0.806                \\
+        \textbf{Referral Date Summer}           & -148.286           & -0.553              & 1.033                \\
+        \textbf{ACE Heart Rate Normal}    & -148.295           & -0.528              & 1.018                \\
+        \textbf{Drug Allergy}                 & -148.300           & -2.017              & 0.642                \\
+        \textbf{ACE Heart Rate High}      & -148.310           & -1.063              & 0.531                \\
+        \textbf{Referral Time Afternoon}        & -148.342           & -0.728              & 0.482                \\
+        \textbf{Referral Profession Registar}   & -148.383           & -0.977              & 0.614                \\
+        \textbf{Sepsis None Noted}               & -148.391           & -1.359              & 1.056                \\
+        \textbf{Referral Time Morning}          & -148.399           & -0.662              & 0.543                \\
+        \textbf{Gender Male}                        & -148.403           & -0.524              & 0.716                \\
+        \textbf{Group Ethnicity European}       & -148.476           & -0.610              & 0.640                \\
+        \textbf{ACE Resp Rate Low}        & -148.490           & -1.173              & 0.744                \\
+        \textbf{Safeguarding Issues}                  & -148.492           & -0.989              & 0.817                \\
+        \textbf{ACE Heart Rate Low}       & -149.909           & -3.316              & 2.049 \\\toprule
+    \caption[Cross-validation of Batesian logistic regression models]{Estimated log pointwise predictive densities and upper/lower 95\% Highest Posterior Density coefficient intervals for each of the bayesian logistic regression models trained using an individual feature}
+    \label{tab:sf-results}
+\end{longtable}
+}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{intercept-dist}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{ox-sat-dist}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{resp-rate-dist}
+    \caption[Coefficient probability densities for numerical features]{Estimated probability densities for the coeficient values of the intercept and numerical features as taken from the best Bayesian logistic regression model. Results correspond with the HPD values in \Cref{fig:best-feature-hpds}}
+    \label{fig:other-coef-estimates}
+\end{figure}
+
+\clearpage

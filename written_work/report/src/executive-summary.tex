@@ -1,0 +1,66 @@
+Bradford Teaching Hospitals Foundation Trust is home to a hospital-at-home service for children and young people (CYP) called the Ambulatory Care Experience (ACE).
+ACE offers an alternative to hospital referral or admission for CYP that require urgent care. CYP under the ACE team are treated and monitored in their own homes in a ``virtual ward'', under the care of a consultant paediatrician.
+
+ACE clinicians admit patients where they are confident care can be provided safely in the community with specialist input - this decision is based on their clinical assessment and a standard condition-specific pathway.
+Although the majority of ACE patients are treated and discharged without requiring a hospital review, some patients are later referred to hospital for ongoing care.
+This project aims to model these outcomes, with the aim of improving the ACE referral pathway.
+
+\section*{Data}\label{sec:data}
+
+The data consist of referral records of 502 patients treated for asthma/wheeze by the ACE team, labeled with the treatment outcome - discharged without referral to hospital (421 examples or 83.9\% of the data) or later referred to hospital (81 examples or 16.1\% of the data).
+The records contain structured numerical and categorical observations, including clinical measurements, patient details and general referral metadata.
+The data also includes unstructured free-text fields: medical histories, examination details and recommendations;
+these text features are used to record relevant referral details that aren't captured in the structured
+data,In later analyses, data were linked from patients' primary and secondary care records (held in the Connected Bradford cloud platform), as well as geospatial data for the Bradford region.
+
+\section*{Main objectives}\label{sec:main-objectives}
+
+The primary objective of this project is to model the outcomes of treatment in ACE using the referral data.
+This objective can be divided into four key goals:
+
+\begin{enumerate}
+    \item Train and evaluate classification models to predict the probability of hospitalisation using the ACE dataset
+    \item Identify important features from the ACE data that are
+    indicative of increased or decreased risk of hospitalisation
+    \item Quantify the degree of certainty or uncertainty associated with
+    both the hospitalisation predictions and important features, as
+    estimated from the ACE dataset
+    \item Determine any increase in model performance with the addition of geographical data, or data from patients' primary and secondary care records
+\end{enumerate}
+
+\section*{Approach}\label{sec:approach}
+
+The exploration is characterised by four main approaches:
+\begin{enumerate}
+    \item \textbf{Classification Modelling}: We trained a range of common classification models (e.g. logistic regression, gradient boosted decision trees, naive Bayes) to predict the probability a patient is hospitalised, evaluating for both accuracy and precision/recall. The aim was to test the baseline accuracy, or the predictive potential, of classification models trained using the ACE referral data. A particular focus was addressing the imbalance of positive/negative labels in the dataset.
+    \item \textbf{Text Analysis}: We analysed the free-text from the ACE referral data using natural language processing techniques.
+    The text features were preprocessed and then vectorised using Term Frequency - Inverse Document Frequencies (TF-IDF). These TF-IDF representations were numerically analysed, and then used to train a logistic regression model to predict hospitalisation risk. A lasso constraint was used to force a sparse selection of words that are most predictive of hospitalisation or successful treatment - these words then guided the creation of new text-based features.
+    \item \textbf{Bayesian Analysis}: Important features identified during the prior analyses were used, individually and in combination, to iteratively model hospitalisation risk using samples generated from a Bayesian logistic regression model.
+    Outputs from these analyses indicate the level of confidence we may assign to the association between these features and hospitalisation risk, and the confidence with which we can predict the probability of hospitalisation.
+    
+    \item \textbf{Additional variables}: We sought to find additional data, beyond the ACE referral form, that may aid model predictive performance. These data came from geospatial analyses of air pollution, distances to healthcare facilities, and local measures of socio-economic deprivation, alongside data on patients' medical history and healthcare usage patterns. We trained predictive models using just the data from the ACE referral form, and compared their performance to models trained using the above data alongside the ACE referral data.
+\end{enumerate}
+
+\section*{Main Conclusions}\label{sec:main-conclusions}
+
+Our analysis identifies features in the ACE data that are predictive of increased/decreased risk of hospitalisation. The Bayesian analysis identifies relationships between several of the dataset features and treatment outcomes, and assigns a high level confidence to relationships - it is extremely unlikely these associations have arisen by chance. Risk factors include clinical indicators that would be obvious to the ACE team, such as low oxygen saturations and high respiratory rates, and less obvious features such as the referral originating from a GP surgery. Promising features meriting further investigation included history of eczema or pneumonia, mention of asthma or certain medications in the referral notes, prescription of long-acting bronchodilators, and the patient's home being in an area of high air pollution.
+
+Despite the relationship between key variables and hospitalisation, the current referral data are not sufficient to generate accurate predictions of hospitalisation among the ACE patients. These results confirm that ACE clinicians are making good referral decisions given the referral observations. The ACE team use the referral data to determine which patients are suitable for home treatment, and only those patients feature in the dataset - that machine learning models are unable to use this data to accurately predict the risk of hospitalisation among these patients indicates ACE clinicians haven't missed any obvious predictors of hospitalisation. This does not rule out the possibility that other predictors may exist that aren't currently considered in the ACE referral criteria; indeed, our examination of additional medical and geospatial variables yielded promising relationships between aspects of a patient's medical history and hospitalisation that aren't considered in the ACE referral criteria.
+
+\section*{Limitations}\label{sec:limitations}
+
+The data only includes patients accepted by the ACE service, and the patients included are referred via many different treatment pathways;
+therefore, it is likely the data are subject to a number of hidden biases.
+The specific methods and results must be considered only within the scope of the ACE service and cannot be generalised.
+
+The dataset is small for this kind of analysis, and data that represent hospitalisations are a small minority (approximately 15\%).
+Results are therefore subject to considerable instability/variability.
+Though the general findings (particularly those supported by Bayesian analysis) are likely to be robust, many of the outputs generated during the experimentation would differ significantly if the data were re-sampled.
+
+\section*{Recommendations and further work}\label{sec:recommendations-and-further-work}
+
+The current ACE referral criteria are already well utilised to determine suitability for treatment at home. If machine learning is to improve upon referral decisions, additional features should be considered beyond those in the extant referral criteria - text analysis, geospatial analysis and primary care records all yielded variables with promising associations with hospitalisation. However, whilst models trained using these additional variables showed improved predictive performance (relative to models trained just using data from the ACE referral form), absolute predictive performance remained middling. 
+
+Discussions with the ACE team have identified a number of potential sources of bias in the ACE dataset - chief among which is the selection bias that follows from using only patients that were accepted for ACE treatment. It is likely that these biases have unforeseen effects on the models and the inferences drawn from the dataset. Therefore, an exploration of the causal relationships in the ACE data, and careful exploration of the different clinical pathways that end in ACE referral are strongly recommended.
+
+Exploring the biases present in the ACE dataset will not make the results that derive from it any less biased. Ultimately a new dataset is required to achieve predictions that can be generalised, a dataset that isn't influenced by the ACE treatment pathway. In collecting such a dataset, a sampling methodology should be designed with the ACE team as subject matter experts - for example we might collect records of hospital admissions for paediatric urgent care from a separate hospital trust, and label them based on an agreed set of clinical characteristics that demonstrate suitability for home care. Such data could then be analysed without the concern of any bias introduced by the ACE service, either via referral or treatment.

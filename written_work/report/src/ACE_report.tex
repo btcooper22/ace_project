@@ -1,0 +1,110 @@
+% Preamble
+\documentclass[11pt]{report}
+
+
+% Packages
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{lmodern}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{capt-of}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage{float}
+\usepackage{longtable, booktabs,etoolbox}
+\usepackage{array, ragged2e}
+\usepackage{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{titlesec, blindtext}
+\usepackage{appendix}
+
+\usepackage[allbordercolors = white, linkcolor = blue, citecolor = blue, colorlinks = true, urlcolor=cyan]{hyperref}
+\usepackage[nameinlink]{cleveref}
+
+\graphicspath{ {../images/} }
+
+\newcommand{\hsp}{\hspace{20pt}}
+\titleformat{\chapter}[hang]{\Huge\bfseries}{\thechapter\hsp\textcolor[HTML]{D0D0D0}{|}\hsp}{0pt}{\Huge\bfseries}
+\titlespacing*{\chapter}{0pt}{0pt}{20pt}
+
+\newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+\captionsetup[longtable]{font=normalsize, labelfont=normalsize}
+
+\setcounter{secnumdepth}{3}
+\geometry{
+a4paper,
+left=30mm,
+right=30mm,
+top=30mm,
+bottom=30mm
+}
+
+\title{Children's Urgent Care in the Right Place Every Time}
+\author{Sam Relins$^1$, Ben Cooper$^1$, Ruaridh Mon-Williams$^2$, Mark Mon-Williams$^{1,2}$, Mathew Mathai$^3$}
+\date{%
+    $^1$Leeds Institute for Data Analytics, University of Leeds, $^2$Bradford Institute for Health Research, $^3$Bradford Teaching Hospitals NHS Foundation Trust\\[2ex]%
+    \today
+}
+
+% Document
+\begin{document}
+
+    \maketitle
+    \tableofcontents
+    
+    % Figures
+	\listoffigures
+
+	% Tables
+	\listoftables
+
+
+    \chapter*{Executive Summary}\label{ch:executive-summary}
+    \input{executive-summary}
+
+    \chapter{Introduction}\label{ch:introduction}
+    \input{introduction}
+
+    \chapter{The Data}\label{ch:the-data}
+    \input{the-data}
+
+    \chapter{Classification Modelling}\label{ch:classification-modelling}
+    \input{classification-modelling}
+
+    \chapter{Free-Text Analysis}\label{ch:free-text-analysis}
+    \input{free-text-analysis}
+
+    \chapter{Bayesian Analysis}\label{ch:bayesian-analysis}
+    \input{bayesian-analysis}
+    
+    \chapter{Additional features}\label{ch:additional-features}
+    \input{additional-features}
+    
+
+    \begin{appendices}
+        \chapter{Appendices}
+
+        \section{The Data}\label{sec:app-the-data}
+        \input{app-the-data}
+
+        \section{Classification Modelling}\label{sec:app-classification-modelling}
+        \input{app-classification-modelling}
+
+        \section{Free Text Analysis}\label{sec:app-free-text-analysis}
+        \input{app-free-text-analysis}
+
+        \section{Bayesian Analysis}
+        \input{app-bayesian-analysis}
+        
+        \section{Additional features}\label{sec:app-additional-features}
+        \input{app-additional-features}
+
+    \end{appendices}
+    \bibliography{main}
+    \bibliographystyle{unsrt}
+
+\end{document}
